@@ -17,28 +17,33 @@
 using std::cerr;
 using std::cout;
 
-const char* messages[] = {"pang", "\tpeng", "\t\tping", "\t\t\tpong", "\t\t\t\tpung"};
+const char* messages[] = {
+    "pang", "\tpeng", "\t\tping", "\t\t\tpong", "\t\t\t\tpung",
+};
+
+enum MessageType {
+    ack = 0,
+    nack = 1,
+    visualize = 2,
+    initialize = 3,
+    data = 4,
+    txt = 5,
+    jpg = 6,
+    mp4 = 7,
+    walk_right = 10,
+    walk_left = 11,
+    walk_up = 12,
+    walk_down = 13,
+    error = 15,
+    end_transmission = 16,
+};
+typedef enum MessageType MessageType;
 
 struct MessageHeader {
     unsigned char init_marker;
     unsigned char size : 5;
     unsigned char sequence : 6;
-    enum MessageType {
-        ack = 0,
-        nack = 1,
-        visualize = 2,
-        initialize = 3,
-        data = 4,
-        txt = 5,
-        jpg = 6,
-        mp4 = 7,
-        walk_right = 10,
-        walk_left = 11,
-        walk_up = 12,
-        walk_down = 13,
-        error = 15,
-        end_transmission = 16,
-    } type : 5;
+    MessageType type : 5;
 
     void print() {
         cerr << "init_marker: " << std::bitset<8>(this->init_marker) << "\n";
@@ -59,7 +64,7 @@ int runServer(int socket) {
             .init_marker = KERMIT_INIT_MARKER,
             .size = (unsigned char)(strlen(message)),
             .sequence = 0,
-            .type = MessageHeader::MessageType::data,
+            .type = MessageType::data,
         };
         memcpy(frame, &header, sizeof(MessageHeader));
         memcpy(frame + sizeof(MessageHeader), message, strlen(message));
@@ -68,10 +73,26 @@ int runServer(int socket) {
         if (frame_size <= 14) {
             frame_size += 14 - frame_size;
         }
+        cerr << "sending message to client\n";
         if (send(socket, frame, frame_size, 0) == -1) {
             int err = errno;
-            cerr << "send() error on runServer(): " << strerror(err) << "(" << err << ")\n";
+            cerr << "send() error on runServer(): " << strerror(err) << "("
+                 << err << ")\n";
         }
+
+        // expecting ack to continue
+        while (recv(socket, frame, BUFFER_SIZE, 0) != -1) {
+            if (recv(socket, frame, BUFFER_SIZE, 0) == -1) {
+                cerr << "could not recover from socket, trying again...\n";
+                continue;
+            }
+            memcpy(&header, frame, sizeof(MessageHeader));
+            if (header.type == MessageType::ack) {
+                cerr << "message successfully sent\n";
+                break;
+            }
+        }
+
         count++;
         if (count % 5 == 0) {
             sleep(5);
@@ -101,6 +122,14 @@ int runClient(int socket) {
         cout << FONT_RED;
         cout.write((const char*)buffer + sizeof(MessageHeader), header.size)
             << FONT_NORMAL "\n\n";
+
+        // constructing ack message
+        header.type = MessageType::ack;
+        memcpy(buffer, &header, sizeof(MessageHeader));
+        while (send(socket, buffer, 14, 0) == -1) {
+            cerr << "fail to send acknowledge message, trying again...\n";
+        }
+        sleep(5);
     }
 }
 
