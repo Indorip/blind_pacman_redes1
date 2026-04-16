@@ -3,11 +3,11 @@
 ## Mensagens
 
 - [ ] Implementar o *protocolo Kermit*
-    - [ ] Verificar *marcador de início* do pacote
+    - [x] Verificar *marcador de início* do pacote
         - [x] parece funcionar
-        - [ ] testes feitos
+        - [x] testes feitos
     - [ ] *ACK/NACK*
-        - [ ] parece funcionar
+        - [x] parece funcionar
         - [ ] testes feitos
     - [ ] Verificar o *CRC do pacote*
         - [ ] Implementar o *algoritmo de CRC*
@@ -19,7 +19,7 @@
         - [ ] parece funcionar
         - [ ] testes feitos
     - [ ] *Sequência*
-        - [ ] parece funcionar
+        - [x] parece funcionar
         - [ ] testes feitos
     - [ ] *Janela Deslizante*
         - [ ] parece funcionar
