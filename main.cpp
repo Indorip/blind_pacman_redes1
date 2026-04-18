@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <bitset>
+#include <ctime>
 #include <iostream>
 
 #include "raw_sockets.hpp"
@@ -147,14 +148,15 @@ struct KermitMessage {
     //
     // - if the message type doesn't involve data (eg. ack/nack), then the
     // parameter data and data size are ignored
-    MessageError sendAndWait(int socket, MessageType type, const char* data,
-                             unsigned int data_size) {
+    MessageError sendAndWait(int socket, MessageType type, int sequence,
+                             const char* data, unsigned int data_size) {
         *this = (KermitMessage){
             .header =
                 {
                     .init_marker = KERMIT_INIT_MARKER,
                     .size = (unsigned char)data_size,
-                    .sequence = (unsigned char)0,  // TODO: handle this later
+                    .sequence =
+                        (unsigned char)sequence,  // TODO: handle this later
                     .type = type,
                 },
             .crc = 0,
@@ -166,7 +168,6 @@ struct KermitMessage {
             return ret;
         }
 
-        int counter = 0;
         while (true) {
             switch (this->sendMessage(socket)) {
                 case MessageError::send_error:
@@ -176,24 +177,34 @@ struct KermitMessage {
                 case MessageError::no_error:
                     break;
             }
+            time_t timestamp = time(NULL);
 
             // - if we receive a timeout, then there are no messages from the
             // socket (we try to send a message again;
-            // - if we receive 15 messages without an ACK response, then we try
-            // to send the message again
-            int counter = 0;
-            do {
+            // int counter = 0;
+            while (true) {
+                cerr << "trying to receive message\n";
                 ret = this->receiveMessage(socket);
                 if (ret == recv_timeout) {
+                    cerr << "timed out on recv, trying to send message again\n";
                     this->header.type = error;
                     break;
+
+                } else if (ret == no_error) {
+                    cerr << "received a kermit message\n";
+                    break;
+
                 } else {
-                    if (++counter > 15) {
+                    // if we don't receive a valid message in 2 seconds, then we
+                    // send send again
+                    if (difftime(time(NULL), timestamp) > 8) {
+                        cerr << "timed out on receiving kermit messages, "
+                                "trying to send message again\n";
                         this->header.type = error;
                         break;
                     }
                 }
-            } while (ret != no_error);
+            }
 
             if (this->header.type == ack) {
                 cerr << FONT_GREEN "recieved ACK\n" FONT_NORMAL;
@@ -226,75 +237,79 @@ struct KermitMessage {
 typedef struct MessageHeader MessageHeader;
 
 int runServer(int socket) {
-    using MessageError = KermitMessage::MessageError;
+    // using MessageError = KermitMessage::MessageError;
 
     unsigned int count = 0;
     while (true) {
         const char* data = messages[count % 5];
-        KermitMessage message = {
-            .header =
-                {
-                    .init_marker = KERMIT_INIT_MARKER,
-                    .size = (unsigned char)(strlen(data)),
-                    .sequence = (unsigned char)count,
-                    .type = MessageType::data,
-                },
-            .crc = 0,
-            .data = {0},
-        };
-
-        switch (message.writeData(data, strlen(data))) {
-            case MessageError::null_pointer:
-                cerr << "Null pointer when writing to data to message\n";
-                break;
-
-            case MessageError::written_data_too_big:
-                cerr << "Message too big (for now)\n";
-                break;
-
-            default:
-                break;
-        }
-
-        // try to send message until receives ACK/NACK
-        while (true) {
-            switch (message.sendMessage(socket)) {
-                case MessageError::send_error:
-                    cerr << "error when sending message\n";
-                    continue;
-
-                case MessageError::no_error:
-                    break;
-            }
-
-            switch (message.receiveMessage(socket)) {
-                case MessageError::recv_timeout:
-                    cerr << "error when reading message on " << __func__
-                         << "()\n";
-                    continue;
-
-                case MessageError::message_received_too_small:
-                    cerr << "message too small on" << __func__ << "()\n";
-                    continue;
-
-                case MessageError::wrong_init_marker:
-                    cerr << "unrecognized header on " << __func__ << "()\n";
-                    continue;
-
-                case MessageError::no_error:
-                    break;
-
-                default:
-                    break;
-            }
-
-            if (message.header.type == ack) {
-                cerr << FONT_GREEN "received ACK\n" FONT_NORMAL;
-                break;
-            } else if (message.header.type == nack) {
-                cerr << FONT_RED "received NACK\n" FONT_NORMAL;
-            }
-        }
+        KermitMessage message;
+        message.header.sequence = count;
+        message.sendAndWait(socket, MessageType::data, count, data,
+                            strlen(data));
+        // KermitMessage message = {
+        //     .header =
+        //         {
+        //             .init_marker = KERMIT_INIT_MARKER,
+        //             .size = (unsigned char)(strlen(data)),
+        //             .sequence = (unsigned char)count,
+        //             .type = MessageType::data,
+        //         },
+        //     .crc = 0,
+        //     .data = {0},
+        // };
+        //
+        // switch (message.writeData(data, strlen(data))) {
+        //     case MessageError::null_pointer:
+        //         cerr << "Null pointer when writing to data to message\n";
+        //         break;
+        //
+        //     case MessageError::written_data_too_big:
+        //         cerr << "Message too big (for now)\n";
+        //         break;
+        //
+        //     default:
+        //         break;
+        // }
+        //
+        // // try to send message until receives ACK/NACK
+        // while (true) {
+        //     switch (message.sendMessage(socket)) {
+        //         case MessageError::send_error:
+        //             cerr << "error when sending message\n";
+        //             continue;
+        //
+        //         case MessageError::no_error:
+        //             break;
+        //     }
+        //
+        //     switch (message.receiveMessage(socket)) {
+        //         case MessageError::recv_timeout:
+        //             cerr << "error when reading message on " << __func__
+        //                  << "()\n";
+        //             continue;
+        //
+        //         case MessageError::message_received_too_small:
+        //             cerr << "message too small on" << __func__ << "()\n";
+        //             continue;
+        //
+        //         case MessageError::wrong_init_marker:
+        //             cerr << "unrecognized header on " << __func__ << "()\n";
+        //             continue;
+        //
+        //         case MessageError::no_error:
+        //             break;
+        //
+        //         default:
+        //             break;
+        //     }
+        //
+        //     if (message.header.type == ack) {
+        //         cerr << FONT_GREEN "received ACK\n" FONT_NORMAL;
+        //         break;
+        //     } else if (message.header.type == nack) {
+        //         cerr << FONT_RED "received NACK\n" FONT_NORMAL;
+        //     }
+        // }
 
         cerr << "message: " << count << "\n";
 
