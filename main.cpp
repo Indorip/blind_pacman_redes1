@@ -3,16 +3,32 @@
 #include <unistd.h>
 
 #include <bitset>
+#include <ctime>
 #include <iostream>
-// #include <string>
 
 #include "raw_sockets.hpp"
 
 #define ERROR -1
 #define NOERROR 0
 
-#define FONT_RED "\x1B[31m"
+// códigos de cor ANSI (terminal)
 #define FONT_NORMAL "\x1B[0m"
+#define FONT_BLACK "\x1B[30m"
+#define FONT_RED "\x1B[31m"
+#define FONT_GREEN "\x1B[32m"
+#define FONT_YELLOW "\x1B[33m"
+#define FONT_BLUE "\x1B[34m"
+#define FONT_MAGENTA "\x1B[35m"
+#define FONT_CYAN "\x1B[36m"
+#define FONT_WHITE "\x1B[37m"
+#define BACK_BLACK "\x1B[40m"
+#define BACK_RED "\x1B[41m"
+#define BACK_GREEN "\x1B[42m"
+#define BACK_YELLOW "\x1B[43m"
+#define BACK_BLUE "\x1B[44m"
+#define BACK_MAGENTA "\x1B[45m"
+#define BACK_CYAN "\x1B[46m"
+#define BACK_WHITE "\x1B[47m"
 
 #define KERMIT_INIT_MARKER 0b01111110
 
@@ -49,29 +65,41 @@ typedef enum MessageType MessageType;
 // message that follows the kermit protocol
 struct KermitMessage {
     struct {
-        unsigned char init_marker;
+        unsigned char init_marker = KERMIT_INIT_MARKER;
         unsigned char size : 5;  // max size is 32B!!!
         unsigned char sequence : 6;
         MessageType type : 5;
     } header;
-    unsigned char crc;
-    char data[BUFFER_SIZE];
+    unsigned char crc;  // TODO: remove this field later
+    char data[BUFFER_SIZE +
+              1];  // data stores the message bytes and the crc right after;
+                   // this buffer can store any message size from the protocol
 
-    int writeData(const char* data, int data_size) {
+    typedef enum {
+        null_pointer,
+        written_data_too_big,
+        message_received_too_small,
+        send_error,
+        recv_other_error,
+        recv_timeout,
+        wrong_init_marker,
+        no_error,
+    } MessageError;
+
+    // writes data to the message
+    // TODO: this function needs to calculate the CRC too
+    MessageError writeData(const char* data, int data_size) {
         if (!data) {
-            cerr << "Null pointer to data in " << __func__ << "()\n";
-            return ERROR;
+            return null_pointer;
         }
 
         if (data_size > 32 /*max value for 5b number is 32*/) {
-            cerr << "Value for data_size is out of range for a 5b number in "
-                 << __func__ << "()\n";
-            return ERROR;
+            return written_data_too_big;
         }
 
         memcpy(this->data, data, data_size);
 
-        return NOERROR;
+        return no_error;
     }
 
     int sendMessage(int socket) {
@@ -86,33 +114,108 @@ struct KermitMessage {
             message_struct_size += MINIMUM_MESSAGE_SIZE - message_struct_size;
         }
 
-        // cout << "message_struct_size: " << message_struct_size << "\n";
         if (send(socket, (const void*)this, message_struct_size, 0) == -1) {
-            cerr << "error when sending message on " << __func__ << "()\n";
-            return ERROR;
+            return send_error;
         }
 
-        return NOERROR;
+        return no_error;
     }
 
-    int receiveMessage(int socket) {
+    MessageError receiveMessage(int socket) {
         int ret = recv(socket, this, sizeof(*this), 0);
+
         if (ret == -1) {
-            cerr << "error when reading message on " << __func__ << "()\n";
-            return ERROR;
+            if (errno == ETIMEDOUT) {
+                return recv_timeout;
+            }
+            return recv_other_error;
         }
 
         if (ret < (int)sizeof(this->header) + (int)sizeof(this->crc)) {
-            cerr << "message too small on" << __func__ << "()\n";
-            return ERROR;
+            return message_received_too_small;
         }
 
         if (this->header.init_marker != KERMIT_INIT_MARKER) {
-            cerr << "unrecognized header on " << __func__ << "()\n";
-            return ERROR;
+            return wrong_init_marker;
         }
 
-        return NOERROR;
+        return no_error;
+    }
+
+    // - sends a message and expects an ACK in return from the socket;
+    // - if there's no message in return or if it receives NACK, then try
+    // sending the same message again
+    //
+    // - if the message type doesn't involve data (eg. ack/nack), then the
+    // parameter data and data size are ignored
+    MessageError sendAndWait(int socket, MessageType type, int sequence,
+                             const char* data, unsigned int data_size) {
+        *this = (KermitMessage){
+            .header =
+                {
+                    .init_marker = KERMIT_INIT_MARKER,
+                    .size = (unsigned char)data_size,
+                    .sequence =
+                        (unsigned char)sequence,  // TODO: handle this later
+                    .type = type,
+                },
+            .crc = 0,
+            .data = {0},
+        };
+
+        MessageError ret = this->writeData(data, data_size);
+        if (ret != no_error) {
+            return ret;
+        }
+
+        while (true) {
+            switch (this->sendMessage(socket)) {
+                case MessageError::send_error:
+                    cerr << "error when sending message\n";
+                    continue;
+
+                case MessageError::no_error:
+                    break;
+            }
+            time_t timestamp = time(NULL);
+
+            // - if we receive a timeout, then there are no messages from the
+            // socket (we try to send a message again;
+            // int counter = 0;
+            while (true) {
+                cerr << "trying to receive message\n";
+                ret = this->receiveMessage(socket);
+                if (ret == recv_timeout) {
+                    cerr << "timed out on recv, trying to send message again\n";
+                    this->header.type = error;
+                    break;
+
+                } else if (ret == no_error) {
+                    cerr << "received a kermit message\n";
+                    break;
+
+                } else {
+                    // if we don't receive a valid message in 2 seconds, then we
+                    // send send again
+                    if (difftime(time(NULL), timestamp) > 8) {
+                        cerr << "timed out on receiving kermit messages, "
+                                "trying to send message again\n";
+                        this->header.type = error;
+                        break;
+                    }
+                }
+            }
+
+            if (this->header.type == ack) {
+                cerr << FONT_GREEN "recieved ACK\n" FONT_NORMAL;
+                return no_error;
+
+            } else if (this->header.type == nack) {
+                cerr << FONT_RED "received NACK\n" FONT_NORMAL;
+            }
+        }
+
+        return no_error;
     }
 
     void printHeader() {
@@ -134,36 +237,90 @@ struct KermitMessage {
 typedef struct MessageHeader MessageHeader;
 
 int runServer(int socket) {
+    // using MessageError = KermitMessage::MessageError;
+
     unsigned int count = 0;
-    while (1) {
+    while (true) {
         const char* data = messages[count % 5];
-        KermitMessage message = {
-            .header =
-                {
-                    .init_marker = KERMIT_INIT_MARKER,
-                    .size = (unsigned char)(strlen(data)),
-                    .sequence = 0,
-                    .type = MessageType::data,
-                },
-            .crc = 0,
-            .data = {0},
-        };
+        KermitMessage message;
+        message.header.sequence = count;
+        message.sendAndWait(socket, MessageType::data, count, data,
+                            strlen(data));
+        // KermitMessage message = {
+        //     .header =
+        //         {
+        //             .init_marker = KERMIT_INIT_MARKER,
+        //             .size = (unsigned char)(strlen(data)),
+        //             .sequence = (unsigned char)count,
+        //             .type = MessageType::data,
+        //         },
+        //     .crc = 0,
+        //     .data = {0},
+        // };
+        //
+        // switch (message.writeData(data, strlen(data))) {
+        //     case MessageError::null_pointer:
+        //         cerr << "Null pointer when writing to data to message\n";
+        //         break;
+        //
+        //     case MessageError::written_data_too_big:
+        //         cerr << "Message too big (for now)\n";
+        //         break;
+        //
+        //     default:
+        //         break;
+        // }
+        //
+        // // try to send message until receives ACK/NACK
+        // while (true) {
+        //     switch (message.sendMessage(socket)) {
+        //         case MessageError::send_error:
+        //             cerr << "error when sending message\n";
+        //             continue;
+        //
+        //         case MessageError::no_error:
+        //             break;
+        //     }
+        //
+        //     switch (message.receiveMessage(socket)) {
+        //         case MessageError::recv_timeout:
+        //             cerr << "error when reading message on " << __func__
+        //                  << "()\n";
+        //             continue;
+        //
+        //         case MessageError::message_received_too_small:
+        //             cerr << "message too small on" << __func__ << "()\n";
+        //             continue;
+        //
+        //         case MessageError::wrong_init_marker:
+        //             cerr << "unrecognized header on " << __func__ << "()\n";
+        //             continue;
+        //
+        //         case MessageError::no_error:
+        //             break;
+        //
+        //         default:
+        //             break;
+        //     }
+        //
+        //     if (message.header.type == ack) {
+        //         cerr << FONT_GREEN "received ACK\n" FONT_NORMAL;
+        //         break;
+        //     } else if (message.header.type == nack) {
+        //         cerr << FONT_RED "received NACK\n" FONT_NORMAL;
+        //     }
+        // }
 
-        if (message.writeData(data, strlen(data)) == -1) {
-            cerr << "Message too big (for now)\n";
-            exit(1);
-        }
-
-        if (message.sendMessage(socket) == -1) {
-            int err = errno;
-            cerr << "send() error on runServer(): " << strerror(err) << "("
-                 << err << ")\n";
-        }
+        cerr << "message: " << count << "\n";
 
         count++;
         if (count % 5 == 0) {
+            message.header.init_marker = 8;
+            for (int i = 0; i < 15; i++) {
+                message.sendMessage(socket);
+                cerr << "sent dummy message: " << i << "\n";
+            }
             break;
-            // sleep(5);
         }
     }
 
@@ -171,22 +328,56 @@ int runServer(int socket) {
 }
 
 int runClient(int socket) {
-    while (1) {
+    using MessageError = KermitMessage::MessageError;
+
+    unsigned char sequence = 0;
+    while (true) {
         KermitMessage message;
-        if (message.receiveMessage(socket) == ERROR) {
-            continue;
+
+        switch (message.receiveMessage(socket)) {
+            case MessageError::no_error:
+                break;
+
+            default:
+                break;
         }
 
         if (message.header.init_marker != KERMIT_INIT_MARKER) {
-            cerr << "got unrecognized init marker "
-                 << std::bitset<8>(message.header.init_marker)
-                 << " discarding...\n";
+            // cerr << "got unrecognized init marker "
+            //      << std::bitset<8>(message.header.init_marker)
+            //      << " discarding...\n";
+            continue;
+        }
+
+        if (message.header.sequence == sequence) {
+            sequence++;
+        } else {
             continue;
         }
 
         cout << "received message: \n";
         message.printHeader();
         message.printData();
+
+        cout << "sending NACK and then ACK response\n";
+        message.header.type = nack;
+        message.sendMessage(socket);
+        message.header.type = ack;
+        switch (message.sendMessage(socket)) {
+            case MessageError::send_error:
+                cerr << "error on send()\n";
+                exit(1);
+                break;
+
+            case MessageError::no_error:
+                cerr << "no error when sending message\n";
+                break;
+
+            default:
+                cerr << "AAAAAAAAAAAAAAAAAAAAAAAA\n";
+                exit(1);
+                break;
+        }
     }
 }
 
@@ -197,8 +388,8 @@ int main(int argc, char* argv[]) {
     }
 
     cout << "Hello :)\n";
-    int socket = cria_raw_socket((char*)"lo");
-    // int socket = cria_raw_socket((char*)"enp3s0");
+    // int socket = cria_raw_socket((char*)"lo");
+    int socket = cria_raw_socket((char*)"enp3s0");
     if (socket == -1) {
         cerr << "Error when creating socket" << "\n";
         exit(1);
