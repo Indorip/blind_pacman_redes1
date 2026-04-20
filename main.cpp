@@ -72,9 +72,9 @@ struct KermitMessage {
         unsigned char sequence : 6;
         MessageType type : 5;
     } header;
-    //unsigned char crc;  // TODO: remove this field later
-    // crc comentado para permitir funcionamento do calc crc
-    // outras funcoes ajustadas considerando remocao (acho q peguei todas)
+    // unsigned char crc;  // TODO: remove this field later
+    //  crc comentado para permitir funcionamento do calc crc
+    //  outras funcoes ajustadas considerando remocao (acho q peguei todas)
     char data[BUFFER_SIZE +
               1];  // data stores the message bytes and the crc right after;
                    // this buffer can store any message size from the protocol
@@ -171,7 +171,7 @@ struct KermitMessage {
         if (ret != no_error) {
             return ret;
         }
-        ret = this->calculateCRC(0, &this.data[data_size]);
+        ret = this->calculateCRC(0, &this->data[data_size]);
         if (ret != no_error) {
             return ret;
         }
@@ -195,7 +195,8 @@ struct KermitMessage {
                 ret = this->receiveMessage(socket);
                 if (ret == recv_timeout) {
                     cerr << "timed out on recv, trying to send message again\n";
-                    this->header.type = error; //? Nao entendi pq mudamos o tipo para error - ULISSES
+                    this->header.type = error;  //? Nao entendi pq mudamos o
+                                                // tipo para error - ULISSES
                     break;
 
                 } else if (ret == no_error) {
@@ -208,7 +209,8 @@ struct KermitMessage {
                     if (difftime(time(NULL), timestamp) > 8) {
                         cerr << "timed out on receiving kermit messages, "
                                 "trying to send message again\n";
-                        this->header.type = error; //? Nao entendi pq mudamos o tipo para error - ULISSES
+                        this->header.type = error;  //? Nao entendi pq mudamos o
+                                                    // tipo para error - ULISSES
                         break;
                     }
                 }
@@ -227,44 +229,41 @@ struct KermitMessage {
     }
 
     // requires message to be fully written excluding CRC
-    MessageError calculateCRC(unsigned char is_check, unsigned char* crc_return) {
-        if (!crc_return)
-            return null_pointer;
+    MessageError calculateCRC(char is_check, char* crc_return) {
+        if (!crc_return) return null_pointer;
 
-        unsigned long message_size =
-            sizeof(this->header) + this->header.size;
+        unsigned long message_size = sizeof(this->header) + this->header.size;
 
         unsigned char aux_buffer[message_size + 1];
         // If we want to generate a crc, last 8 bits are 0
-        if (is_check == 0)
-        {
+        if (is_check == 0) {
             memcpy(aux_buffer, this, message_size);
             aux_buffer[message_size] = 0;
         }
-        // If we want to check a crc, message has crc written on its last 
+        // If we want to check a crc, message has crc written on its last
         // 8 bits (not accounted in message_size)
         else
-            memcpy(aux_buffer, this, message_size+1);
+            memcpy(aux_buffer, this, message_size + 1);
 
         // CRC = first 8 bits of the message (init marker)
         unsigned char crc = aux_buffer[0];
 
-        // Loop for remaining (n-1)*8 bits 
+        // Loop for remaining (n-1)*8 bits
         // doing XoR when 1st bit is == 1
-        for (unsigned int  i = 1; i <= message_size; i++) {
+        for (unsigned int i = 1; i <= message_size; i++) {
             unsigned char current_bit = 0b10000000;
             for (unsigned int j = 8; j > 0; j--) {
                 // If first bit == 1
                 unsigned char bit_check = crc & 0b10000000;
                 crc = crc << 1;
                 // Adds jth bit of current byte to crc's LSB
-                crc += (aux_buffer[i] & current_bit) >> j-1;
+                crc += (aux_buffer[i] & current_bit) >> (j - 1);
 
                 // If first bit == 1 do XOR with generator
                 if (bit_check) {
                     crc = crc ^ CRC_XOR_BITS;
                 }
-                
+
                 current_bit = current_bit >> 1;
             }
         }
@@ -274,13 +273,17 @@ struct KermitMessage {
         return no_error;
     }
 
+    // bool checkCRC() {
+    //     return true;
+    // }
+
     void printHeader() {
         cerr << "init_marker: " << std::bitset<8>(this->header.init_marker)
              << "\n";
         cerr << "size: " << (int)this->header.size << "\n";
         cerr << "sequence: " << (int)this->header.sequence << "\n";
         cerr << "type: " << (int)this->header.type << "\n";
-        //cerr << "crc: " << (int)this->crc << "\n";
+        // cerr << "crc: " << (int)this->crc << "\n";
     }
 
     void printData() {
@@ -302,70 +305,6 @@ int runServer(int socket) {
         message.header.sequence = count;
         message.sendAndWait(socket, MessageType::data, count, data,
                             strlen(data));
-        // KermitMessage message = {
-        //     .header =
-        //         {
-        //             .init_marker = KERMIT_INIT_MARKER,
-        //             .size = (unsigned char)(strlen(data)),
-        //             .sequence = (unsigned char)count,
-        //             .type = MessageType::data,
-        //         },
-        //     .crc = 0,
-        //     .data = {0},
-        // };
-        //
-        // switch (message.writeData(data, strlen(data))) {
-        //     case MessageError::null_pointer:
-        //         cerr << "Null pointer when writing to data to message\n";
-        //         break;
-        //
-        //     case MessageError::written_data_too_big:
-        //         cerr << "Message too big (for now)\n";
-        //         break;
-        //
-        //     default:
-        //         break;
-        // }
-        //
-        // // try to send message until receives ACK/NACK
-        // while (true) {
-        //     switch (message.sendMessage(socket)) {
-        //         case MessageError::send_error:
-        //             cerr << "error when sending message\n";
-        //             continue;
-        //
-        //         case MessageError::no_error:
-        //             break;
-        //     }
-        //
-        //     switch (message.receiveMessage(socket)) {
-        //         case MessageError::recv_timeout:
-        //             cerr << "error when reading message on " << __func__
-        //                  << "()\n";
-        //             continue;
-        //
-        //         case MessageError::message_received_too_small:
-        //             cerr << "message too small on" << __func__ << "()\n";
-        //             continue;
-        //
-        //         case MessageError::wrong_init_marker:
-        //             cerr << "unrecognized header on " << __func__ << "()\n";
-        //             continue;
-        //
-        //         case MessageError::no_error:
-        //             break;
-        //
-        //         default:
-        //             break;
-        //     }
-        //
-        //     if (message.header.type == ack) {
-        //         cerr << FONT_GREEN "received ACK\n" FONT_NORMAL;
-        //         break;
-        //     } else if (message.header.type == nack) {
-        //         cerr << FONT_RED "received NACK\n" FONT_NORMAL;
-        //     }
-        // }
 
         cerr << "message: " << count << "\n";
 
@@ -386,7 +325,7 @@ int runServer(int socket) {
 int runClient(int socket) {
     using MessageError = KermitMessage::MessageError;
 
-    unsigned char crc_check;
+    char crc_check;
     unsigned char sequence = 0;
     while (true) {
         KermitMessage message;
@@ -418,14 +357,13 @@ int runClient(int socket) {
 
         // Checking if CRC error
         message.calculateCRC(1, &crc_check);
-        
+
         // Error
-        if (crc_check != 0)
-            message.header.type = nack;
+        if (crc_check != 0) message.header.type = nack;
         // No Error
         else
             message.header.type = ack;
-        
+
         switch (message.sendMessage(socket)) {
             case MessageError::send_error:
                 cerr << "error on send()\n";
