@@ -1,0 +1,250 @@
+#include "kermit.hpp"
+
+#include <string.h>
+
+#include <bitset>
+#include <ctime>
+
+#include "macros.hpp"
+
+// TODO: this function needs to calculate(and set) the CRC too
+MessageError KermitMessage::writeData(const char* data, int data_size) {
+    if (!data) {
+        return null_pointer;
+    }
+
+    if (data_size > 32 /*max value for 5b number is 32*/) {
+        return written_data_too_big;
+    }
+
+    memcpy(this->data, data, data_size);
+
+    return no_error;
+}
+
+int KermitMessage::sendMessage(int socket) {
+    unsigned long message_struct_size =
+        sizeof(this->header) + this->header.size + 1;
+
+    // just so there's no problem with the size of the message
+    char frame[message_struct_size + MINIMUM_MESSAGE_SIZE];
+
+    memcpy(frame, this, message_struct_size);
+    if (message_struct_size < MINIMUM_MESSAGE_SIZE) {
+        message_struct_size += MINIMUM_MESSAGE_SIZE - message_struct_size;
+    }
+
+    if (send(socket, (const void*)this, message_struct_size, 0) == -1) {
+        return send_error;
+    }
+
+    return no_error;
+}
+
+MessageError KermitMessage::receiveMessage(int socket) {
+    int ret = recv(socket, this, sizeof(*this), 0);
+
+    if (ret == -1) {
+        if (errno == ETIMEDOUT) {
+            return recv_timeout;
+        }
+        return recv_other_error;
+    }
+
+    if (ret < (int)sizeof(this->header) + 1) {
+        return message_received_too_small;
+    }
+
+    if (this->header.init_marker != KERMIT_INIT_MARKER) {
+        return wrong_init_marker;
+    }
+
+    return no_error;
+}
+
+// - sends a message and expects an ACK in return from the socket;
+// - if there's no message in return or if it receives NACK, then try
+// sending the same message again
+//
+// - if the message type doesn't involve data (eg. ack/nack), then the
+// parameter data and data size are ignored
+MessageError KermitMessage::sendAndWait(int socket, MessageType type,
+                                        int sequence, const char* data,
+                                        unsigned int data_size) {
+    *this = (KermitMessage){
+        .header =
+            {
+                .init_marker = KERMIT_INIT_MARKER,
+                .size = (unsigned char)data_size,
+                .sequence = (unsigned char)sequence,  // TODO: handle this later
+                .type = type,
+            },
+        .data = {0},
+    };
+
+    MessageError ret = this->writeData(data, data_size);
+    if (ret != no_error) {
+        return ret;
+    }
+    // ret = this->calculateCRC(0, &this->data[data_size]);
+    // if (ret != no_error) {
+    //     return ret;
+    // }
+    this->setCRC();
+
+    while (true) {
+        switch (this->sendMessage(socket)) {
+            case MessageError::send_error:
+                cerr << "error when sending message\n";
+                continue;
+
+            case MessageError::no_error:
+                break;
+        }
+        time_t timestamp = time(NULL);
+
+        // - if we receive a timeout, then there are no messages from the
+        // socket (we try to send a message again;
+        // int counter = 0;
+        while (true) {
+            cerr << "trying to receive message\n";
+            ret = this->receiveMessage(socket);
+            if (ret == recv_timeout) {
+                cerr << "timed out on recv, trying to send message again\n";
+                this->header.type = error;  //? Nao entendi pq mudamos o
+                                            // tipo para error - ULISSES
+                break;
+
+            } else if (ret == no_error) {
+                cerr << "received a kermit message\n";
+                break;
+
+            } else {
+                // if we don't receive a valid message in 2 seconds, then we
+                // send send again
+                if (difftime(time(NULL), timestamp) > 8) {
+                    cerr << "timed out on receiving kermit messages, "
+                            "trying to send message again\n";
+                    this->header.type = error;  //? Nao entendi pq mudamos o
+                                                // tipo para error - ULISSES
+                    break;
+                }
+            }
+        }
+
+        if (this->header.type == ack) {
+            cerr << FONT_GREEN "recieved ACK\n" FONT_NORMAL;
+            return no_error;
+
+        } else if (this->header.type == nack) {
+            cerr << FONT_RED "received NACK\n" FONT_NORMAL;
+        }
+    }
+
+    return no_error;
+}
+
+// requires message to be fully written excluding CRC
+MessageError KermitMessage::calculateCRC(char is_check, char* crc_return) {
+    if (!crc_return) return null_pointer;
+
+    unsigned long message_size = sizeof(this->header) + this->header.size;
+
+    unsigned char aux_buffer[message_size + 1];
+    // If we want to generate a crc, last 8 bits are 0
+    if (is_check == 0) {
+        memcpy(aux_buffer, this, message_size);
+        aux_buffer[message_size] = 0;
+    }
+    // If we want to check a crc, message has crc written on its last
+    // 8 bits (not accounted in message_size)
+    else
+        memcpy(aux_buffer, this, message_size + 1);
+
+    // CRC = first 8 bits of the message (init marker)
+    unsigned char crc = aux_buffer[0];
+
+    // Loop for remaining (n-1)*8 bits
+    // doing XoR when 1st bit is == 1
+    for (unsigned int i = 1; i <= message_size; i++) {
+        unsigned char current_bit = 0b10000000;
+        for (unsigned int j = 8; j > 0; j--) {
+            // If first bit == 1
+            unsigned char bit_check = crc & 0b10000000;
+            crc = crc << 1;
+            // Adds jth bit of current byte to crc's LSB
+            crc += (aux_buffer[i] & current_bit) >> (j - 1);
+
+            // If first bit == 1 do XOR with generator
+            if (bit_check) {
+                crc = crc ^ CRC_XOR_BITS;
+            }
+
+            current_bit = current_bit >> 1;
+        }
+    }
+
+    *crc_return = crc;
+
+    return no_error;
+}
+
+char KermitMessage::otherCalculateCRC(unsigned int size) {
+    // unsigned long message_size = sizeof(this->header) + this->header.size;
+    unsigned char aux_buffer[size];
+
+    memcpy(aux_buffer, this, size);
+    // CRC = first 8 bits of the message (init marker)
+    unsigned char crc = aux_buffer[0];
+
+    // loop for remaining (n - 1) * 8 bits
+    // doing XOR when 1st bit is == 1
+    for (unsigned int i = 1; i <= size; i++) {
+        unsigned char current_bit = 0b10000000;
+        for (unsigned int j = 8; j > 0; j--) {
+            // if first bit == 1
+            unsigned char bit_check = crc & 0b10000000;
+            crc <<= 1;
+            // adds jth bit of the current byte to crc's LSB
+            crc += (aux_buffer[i] & current_bit) >> (j - 1);
+
+            // if first bit == 1 do XOR with generator
+            if (bit_check) {
+                crc ^= CRC_XOR_BITS;
+            }
+
+            current_bit >>= 1;
+        }
+    }
+
+    return crc;
+}
+
+void KermitMessage::setCRC() {
+    int size = sizeof(this->header) + this->header.size;
+    this->data[size] =
+        otherCalculateCRC(sizeof(this->header) + this->header.size);
+}
+
+bool KermitMessage::checkCRC() {
+    if (this->otherCalculateCRC(sizeof(this->header) + this->header.size + 1) ==
+        0)
+        return true;
+
+    return false;
+}
+
+void KermitMessage::printHeader() {
+    cerr << "init_marker: " << std::bitset<8>(this->header.init_marker) << "\n";
+    cerr << "size: " << (int)this->header.size << "\n";
+    cerr << "sequence: " << (int)this->header.sequence << "\n";
+    cerr << "type: " << (int)this->header.type << "\n";
+    // cerr << "crc: " << (int)this->crc << "\n";
+}
+
+void KermitMessage::printData() {
+    // cerr << std::bitset<BUFFER_SIZE>(this->data) << "\n";
+    cerr << "(" FONT_RED;
+    cerr.write(this->data, this->header.size);
+    cerr << FONT_NORMAL ")\n";
+}

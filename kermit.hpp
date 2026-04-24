@@ -1,0 +1,86 @@
+#ifndef KERMIT
+#define KERMIT
+
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include <iostream>
+
+#define KERMIT_INIT_MARKER 0b01111110
+
+#define TIMEOUT_MS 3000  // 3 seconds for timeout
+
+#define BUFFER_SIZE 32  // represented by 5 bits
+#define MINIMUM_MESSAGE_SIZE 14
+
+#define CRC_XOR_BITS 0b11010101
+
+using std::cerr;
+using std::cout;
+
+enum MessageType {
+    ack = 0,
+    nack = 1,
+    visualize = 2,
+    initialize = 3,
+    data = 4,
+    txt = 5,
+    jpg = 6,
+    mp4 = 7,
+    walk_right = 10,
+    walk_left = 11,
+    walk_up = 12,
+    walk_down = 13,
+    error = 15,
+    end_transmission = 16,
+};
+typedef enum MessageType MessageType;
+
+typedef enum {
+    null_pointer,
+    written_data_too_big,
+    message_received_too_small,
+    send_error,
+    recv_other_error,
+    recv_timeout,
+    wrong_init_marker,
+    no_error,
+} MessageError;
+
+// message that follows the kermit protocol
+struct KermitMessage {
+    struct {
+        unsigned char init_marker = KERMIT_INIT_MARKER;
+        unsigned char size : 5;  // max size is 32B!!!
+        unsigned char sequence : 6;
+        MessageType type : 5;
+    } header;
+    char data[BUFFER_SIZE +
+              1];  // data stores the message bytes and the crc right after;
+                   // this buffer can store any message size from the protocol
+
+    // writes data to the message
+    // TODO: this function needs to calculate the CRC too
+    MessageError writeData(const char* data, int data_size);
+    int sendMessage(int socket);
+    MessageError receiveMessage(int socket);
+
+    // - sends a message and expects an ACK in return from the socket;
+    // - if there's no message in return or if it receives NACK, then try
+    // sending the same message again
+    //
+    // - if the message type doesn't involve data (eg. ack/nack), then the
+    // parameter data and data size are ignored
+    MessageError sendAndWait(int socket, MessageType type, int sequence,
+                             const char* data, unsigned int data_size);
+    // requires message to be fully written excluding CRC
+    MessageError calculateCRC(char is_check, char* crc_return);
+    char otherCalculateCRC(unsigned int size);
+    void setCRC();
+    bool checkCRC();
+    void printHeader();
+    void printData();
+};
+typedef struct MessageHeader MessageHeader;
+
+#endif
