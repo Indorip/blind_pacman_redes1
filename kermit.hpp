@@ -74,8 +74,7 @@ struct KermitMessage {
     MessageError sendAndWait(int socket, MessageType type, int sequence,
                              const char* data, unsigned int data_size);
     // requires message to be fully written excluding CRC
-    MessageError calculateCRC(char is_check, char* crc_return);
-    char otherCalculateCRC(unsigned int size);
+    MessageError calculateCRC(bool is_check, char* crc_return);
     void setCRC();
     bool checkCRC();
     void printHeader();

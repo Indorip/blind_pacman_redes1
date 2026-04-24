@@ -41,9 +41,6 @@ int runServer(int socket) {
 }
 
 int runClient(int socket) {
-    // using MessageError = KermitMessage::MessageError;
-
-    char crc_check;
     unsigned char sequence = 0;
     while (true) {
         KermitMessage message;
@@ -73,19 +70,12 @@ int runClient(int socket) {
         message.printHeader();
         message.printData();
 
-        // Checking if CRC error
-        // message.calculateCRC(1, &crc_check);
+        // Checking CRC for errors
         if (message.checkCRC() == false) {
             message.header.type = nack;
         } else {
             message.header.type = ack;
         }
-
-        // // Error
-        // if (crc_check != 0) message.header.type = nack;
-        // // No Error
-        // else
-        //     message.header.type = ack;
 
         switch (message.sendMessage(socket)) {
             case MessageError::send_error:

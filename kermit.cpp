@@ -86,10 +86,6 @@ MessageError KermitMessage::sendAndWait(int socket, MessageType type,
     if (ret != no_error) {
         return ret;
     }
-    // ret = this->calculateCRC(0, &this->data[data_size]);
-    // if (ret != no_error) {
-    //     return ret;
-    // }
     this->setCRC();
 
     while (true) {
@@ -145,14 +141,14 @@ MessageError KermitMessage::sendAndWait(int socket, MessageType type,
 }
 
 // requires message to be fully written excluding CRC
-MessageError KermitMessage::calculateCRC(char is_check, char* crc_return) {
+MessageError KermitMessage::calculateCRC(bool is_check, char* crc_return) {
     if (!crc_return) return null_pointer;
 
     unsigned long message_size = sizeof(this->header) + this->header.size;
 
     unsigned char aux_buffer[message_size + 1];
     // If we want to generate a crc, last 8 bits are 0
-    if (is_check == 0) {
+    if (!is_check) {
         memcpy(aux_buffer, this, message_size);
         aux_buffer[message_size] = 0;
     }
@@ -189,47 +185,15 @@ MessageError KermitMessage::calculateCRC(char is_check, char* crc_return) {
     return no_error;
 }
 
-char KermitMessage::otherCalculateCRC(unsigned int size) {
-    // unsigned long message_size = sizeof(this->header) + this->header.size;
-    unsigned char aux_buffer[size];
-
-    memcpy(aux_buffer, this, size);
-    // CRC = first 8 bits of the message (init marker)
-    unsigned char crc = aux_buffer[0];
-
-    // loop for remaining (n - 1) * 8 bits
-    // doing XOR when 1st bit is == 1
-    for (unsigned int i = 1; i <= size; i++) {
-        unsigned char current_bit = 0b10000000;
-        for (unsigned int j = 8; j > 0; j--) {
-            // if first bit == 1
-            unsigned char bit_check = crc & 0b10000000;
-            crc <<= 1;
-            // adds jth bit of the current byte to crc's LSB
-            crc += (aux_buffer[i] & current_bit) >> (j - 1);
-
-            // if first bit == 1 do XOR with generator
-            if (bit_check) {
-                crc ^= CRC_XOR_BITS;
-            }
-
-            current_bit >>= 1;
-        }
-    }
-
-    return crc;
-}
-
 void KermitMessage::setCRC() {
-    int size = sizeof(this->header) + this->header.size;
-    this->data[size] =
-        otherCalculateCRC(sizeof(this->header) + this->header.size);
+    calculateCRC(false, &this->data[this->header.size]);
 }
 
 bool KermitMessage::checkCRC() {
-    if (this->otherCalculateCRC(sizeof(this->header) + this->header.size + 1) ==
-        0)
-        return true;
+    char crc;
+    calculateCRC(true, &crc);
+
+    if (crc == 0) return true;
 
     return false;
 }
