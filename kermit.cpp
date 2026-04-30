@@ -78,14 +78,9 @@ PacketError KermitPacket::send(int socket, PacketType type, const char* data,
         unsigned int distance_to_end =
             std::abs((long int)data_size - (long int)offset);
 
-        int size;
-        if (data_size - offset < BUFFER_SIZE) {
-            size = data_size - offset;
-        } else {
-            size = BUFFER_SIZE -
-                   ((distance_to_end < BUFFER_SIZE) *
-                    (distance_to_end - BUFFER_SIZE)) -
-                   offset;
+        int size = BUFFER_SIZE;
+        if (distance_to_end < BUFFER_SIZE) {
+            size = distance_to_end;
         }
 
         cerr << "data size: " << size << " ";
