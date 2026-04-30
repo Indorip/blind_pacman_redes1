@@ -71,15 +71,31 @@ PacketError KermitPacket::receivePacket(int socket) {
 // parameter data and data size are ignored
 PacketError KermitPacket::send(int socket, PacketType type, int sequence,
                                const char* data, unsigned int data_size) {
-    // unsigned char aux_buffer[BUFFER_SIZE + 1];
     unsigned int offset = 0;  // position on the data buffer in bytes
 
     while (offset < data_size) {
+        unsigned int distance_to_end =
+            std::abs((long int)data_size - (long int)offset);
+
+        int size;
+        if (data_size - offset < BUFFER_SIZE) {
+            size = data_size - offset;
+        } else {
+            size = BUFFER_SIZE -
+                   ((distance_to_end < BUFFER_SIZE) *
+                    (distance_to_end - BUFFER_SIZE)) -
+                   offset;
+        }
+
+        cerr << "data size: " << size << " ";
+        cerr.write(data + offset, size);
+        cerr << "\n";
+
         KermitPacket packet = (KermitPacket){
             .header =
                 {
                     .init_marker = KERMIT_INIT_MARKER,
-                    .size = (unsigned char)data_size,
+                    .size = (unsigned char)size,
                     .sequence =
                         (unsigned char)sequence,  // TODO: handle this later
                     .type = type,
@@ -87,12 +103,7 @@ PacketError KermitPacket::send(int socket, PacketType type, int sequence,
             .data = {0},
         };
 
-        unsigned int distance_to_end =
-            std::abs((long int)data_size - (long int)offset);
-
-        PacketError ret = packet.writeData(
-            data + offset, BUFFER_SIZE - ((distance_to_end) > BUFFER_SIZE) *
-                                             (distance_to_end - BUFFER_SIZE));
+        PacketError ret = packet.writeData(data + offset, size);
 
         if (ret != no_error) {
             cerr << "error when writing data to buffer\n";
@@ -160,7 +171,7 @@ PacketError KermitPacket::send(int socket, PacketType type, int sequence,
             }
         }
 
-        offset += BUFFER_SIZE;
+        offset += size;
     }
 
     return no_error;

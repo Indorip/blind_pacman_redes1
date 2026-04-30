@@ -12,13 +12,13 @@ using std::cerr;
 using std::cout;
 
 const char* messages[] = {
-    "pang", "\tpeng", "\t\tping", "\t\t\tpong", "\t\t\t\tpung",
+    "pang", "\tpeng", "\t\tping", "\t\t\tpong", "\t\t\t\tpung", "ESSA MENSAGEM É PRA SER BEM MAIOR AGORA"
 };
 
 int runServer(int socket) {
     unsigned int count = 0;
     while (true) {
-        const char* data = messages[count % 5];
+        const char* data = messages[count % 6];
         KermitPacket message;
         message.header.sequence = count;
         message.send(socket, PacketType::data, count, data,
@@ -27,7 +27,7 @@ int runServer(int socket) {
         cerr << "message: " << count << "\n";
 
         count++;
-        if (count % 5 == 0) {
+        if (count % 6 == 0) {
             message.header.init_marker = 8;
             for (int i = 0; i < 15; i++) {
                 message.sendPacket(socket);
@@ -60,11 +60,11 @@ int runClient(int socket) {
             continue;
         }
 
-        if (message.header.sequence == sequence) {
-            sequence++;
-        } else {
-            continue;
-        }
+        // if (message.header.sequence == sequence) {
+        //     sequence++;
+        // } else {
+        //     continue;
+        // }
 
         cout << "received message: \n";
         message.printHeader();

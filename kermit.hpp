@@ -10,7 +10,7 @@
 
 #define TIMEOUT_MS 3000  // 3 seconds for timeout
 
-#define BUFFER_SIZE 32  // represented by 5 bits
+#define BUFFER_SIZE 31  // represented by 5 bits (0-31)
 #define MINIMUM_PACKET_SIZE 14
 
 #define CRC_XOR_BITS 0b11010101
