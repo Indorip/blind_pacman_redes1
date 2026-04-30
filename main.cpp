@@ -4,16 +4,16 @@
 
 #include <iostream>
 
-#include "raw_sockets.hpp"
 #include "kermit.hpp"
 #include "macros.hpp"
+#include "raw_sockets.hpp"
 
 using std::cerr;
 using std::cout;
 
 const char* messages[] = {
-    "pang", "\tpeng", "\t\tping", "\t\t\tpong", "\t\t\t\tpung", "ESSA MENSAGEM É PRA SER BEM MAIOR AGORA"
-};
+    "pang",       "\tpeng",       "\t\tping",
+    "\t\t\tpong", "\t\t\t\tpung", "ESSA MENSAGEM É PRA SER BEM MAIOR AGORA"};
 
 int runServer(int socket) {
     unsigned int count = 0;
@@ -21,8 +21,7 @@ int runServer(int socket) {
         const char* data = messages[count % 6];
         KermitPacket message;
         message.header.sequence = count;
-        message.send(socket, PacketType::data, count, data,
-                            strlen(data));
+        message.send(socket, PacketType::data, data, strlen(data));
 
         cerr << "message: " << count << "\n";
 

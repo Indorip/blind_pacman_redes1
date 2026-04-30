@@ -71,8 +71,8 @@ struct KermitPacket {
     //
     // - if the message type doesn't involve data (eg. ack/nack), then the
     // parameter data and data size are ignored
-    PacketError send(int socket, PacketType type, int sequence,
-                             const char* data, unsigned int data_size);
+    PacketError send(int socket, PacketType type, const char* data,
+                     unsigned int data_size);
     PacketError confirmSend(int socket);
     // requires message to be fully written excluding CRC
     PacketError calculateCRC(bool is_check, char* crc_return);

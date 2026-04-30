@@ -69,9 +69,10 @@ PacketError KermitPacket::receivePacket(int socket) {
 //
 // - if the message type doesn't involve data (eg. ack/nack), then the
 // parameter data and data size are ignored
-PacketError KermitPacket::send(int socket, PacketType type, int sequence,
-                               const char* data, unsigned int data_size) {
+PacketError KermitPacket::send(int socket, PacketType type, const char* data,
+                               unsigned int data_size) {
     unsigned int offset = 0;  // position on the data buffer in bytes
+    int sequence = 0;
 
     while (offset < data_size) {
         unsigned int distance_to_end =
@@ -96,8 +97,7 @@ PacketError KermitPacket::send(int socket, PacketType type, int sequence,
                 {
                     .init_marker = KERMIT_INIT_MARKER,
                     .size = (unsigned char)size,
-                    .sequence =
-                        (unsigned char)sequence,  // TODO: handle this later
+                    .sequence = (unsigned char)sequence,  // TODO: handle this later
                     .type = type,
                 },
             .data = {0},
@@ -171,6 +171,7 @@ PacketError KermitPacket::send(int socket, PacketType type, int sequence,
             }
         }
 
+        sequence = (sequence + 1) % 8; // 8 because sequence field has 3 bits
         offset += size;
     }
 
