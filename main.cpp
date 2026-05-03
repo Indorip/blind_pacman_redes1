@@ -27,6 +27,9 @@ int runServer(int socket) {
         KermitPacket message;
         message.header.sequence = count;
         message.send(socket, PacketType::data, data, strlen(data));
+        cerr << "before confirmSend()\n";
+        message.confirmSend(socket);
+        cerr << "after confirmSend()\n";
 
         cerr << "message: " << count << "\n";
 
@@ -110,7 +113,7 @@ int main(int argc, char* argv[]) {
 
     cout << "Hello :)\n";
     
-    int socket = cria_raw_socket((char*)"enp5s0");
+    int socket = cria_raw_socket((char*)"enp3s0");
     if (socket == -1) {
         cerr << "Error when creating socket" << "\n";
         exit(1);
@@ -146,15 +149,10 @@ int main(int argc, char* argv[]) {
         if (mode == 0) {
             cerr << "\n\n\nI am Server Now\n";
             KermitPacket message;
-            message.send(socket, PacketType::initialize, {0}, 0);
             const char* data = messages[i];
             message.send(socket, PacketType::data, data, strlen(data));
+            message.confirmSend(socket);
             cerr << "message: " << i << "\n";
-            message.header.type = end_transmission;
-            message.header.size = 0;
-            message.data[0] = {0};
-            message.calculateCRC(false, message.data);
-            message.sendPacket(socket);
             mode = 1;
         }
 
@@ -165,8 +163,10 @@ int main(int argc, char* argv[]) {
             aux.receive(socket, &buffer);
             cerr << "Received end transmission\n";
             cerr << "\tMessage " << i << " Obtained: ";
+            cerr << FONT_MAGENTA;
             for (char a : buffer)
                 cerr << a;
+            cerr << FONT_NORMAL;
             cerr << "\n";
             mode = 0;
         }
