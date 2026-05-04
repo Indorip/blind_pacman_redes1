@@ -87,6 +87,8 @@ PacketError KermitPacket::receivePacket(int socket) {
 // parameter data and data size are ignored
 PacketError KermitPacket::send(int socket, PacketType type, const char* data,
                                unsigned int data_size) {
+    cerr << "entered send()\n";
+
     int sequence = 0;
 
     KermitPacket init = KermitPacket(initialize, 0);
@@ -106,6 +108,30 @@ PacketError KermitPacket::send(int socket, PacketType type, const char* data,
                 cerr << "didn't receive any response, trying again...\n";
             }
         }
+    }
+
+    if (data_size == 0) {
+        KermitPacket packet = KermitPacket(type, 0);
+        packet.setCRC();
+        while (true) {
+            KermitPacket response;
+            int ret = packet.sendPacket(socket);
+            if (ret == no_error) {
+                ret = response.receivePacket(socket);
+                if (ret == no_error) {
+                    if (response.header.type == ack) {
+                        break;
+                    } else {
+                        cerr << "didn't receive ACK as response, trying "
+                                "again...\n";
+                    }
+                } else {
+                    cerr << "didn't receive any response, trying again...\n";
+                }
+            }
+        }
+
+        return no_error;
     }
 
     unsigned int offset = 0;  // position on the data buffer in bytes
@@ -179,7 +205,7 @@ PacketError KermitPacket::send(int socket, PacketType type, const char* data,
             }
         }
 
-        sequence = (sequence + 1) % 8;  // 8 because sequence field has 3 bits
+        sequence = (sequence + 1) % 64;  // 8 because sequence field has 6 bits
         offset += size;
     }
     cerr << "entire message sent, exiting send()\n";
@@ -225,12 +251,13 @@ PacketError KermitPacket::confirmSend(int socket) {
             }
         }
     }
-    cerr << "successfully sent end_transmission";
+    cerr << "successfully sent end_transmission exiting confirmSend()\n";
 
     return no_error;
 }
 
 PacketType KermitPacket::receive(int socket, std::vector<char>* buffer) {
+    cerr << "entering receive()\n";
     KermitPacket packet;
 
     // Resposta pronta ack
@@ -276,6 +303,7 @@ PacketType KermitPacket::receive(int socket, std::vector<char>* buffer) {
         int ret = packet.receivePacket(socket);
 
         if (ret == no_error) {
+            
             // Received end transmission
             if (packet.header.type == end_transmission) {
                 cerr << FONT_BLUE "END TRANSMISSION\n" FONT_NORMAL;
@@ -288,8 +316,8 @@ PacketType KermitPacket::receive(int socket, std::vector<char>* buffer) {
                 response_nack.sendPacket(socket);
             }
             // Next Sequential Message
-            else if (packet.header.sequence == sequence + 1) {
-                sequence++;
+            else if (packet.header.sequence == (sequence + 1) % 64) {
+                sequence = (sequence + 1) % 64;
                 cerr << FONT_BLUE "RECEIVED NEXT SEQUENCE\n" FONT_NORMAL;
                 cerr << "Sequence " << sequence << " Received, ";
                 cerr << "Inserting Data to Buffer\n";
@@ -299,7 +327,9 @@ PacketType KermitPacket::receive(int socket, std::vector<char>* buffer) {
             }
             // Wrong Sequential Message
             else if (packet.header.sequence < sequence) {
-                cerr << FONT_BLUE "WRONG SEQUENCE\n" FONT_NORMAL;
+                cerr << FONT_BLUE "WRONG SEQUENCE: expected (" << sequence
+                     << ") but got (" << (unsigned char)packet.header.sequence
+                     << ")\n" FONT_NORMAL;
                 response_nack.sendPacket(socket);
             }
             // Same message
@@ -318,6 +348,7 @@ PacketType KermitPacket::receive(int socket, std::vector<char>* buffer) {
             continue;
     }
 
+    cerr << "exiting receive()\n";
     return message_type;
 }
 
