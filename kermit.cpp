@@ -41,13 +41,24 @@ int KermitPacket::sendPacket(int socket) {
 
     // just so there's no problem with the size of the message
     char frame[message_struct_size + MINIMUM_PACKET_SIZE];
+    char struct_copy[message_struct_size];
+    memset(frame, 0, message_struct_size + MINIMUM_PACKET_SIZE);
 
-    memcpy(frame, this, message_struct_size);
-    if (message_struct_size < MINIMUM_PACKET_SIZE) {
-        message_struct_size += MINIMUM_PACKET_SIZE - message_struct_size;
+    memcpy(struct_copy, this, message_struct_size);
+    unsigned long written_bytes = 0;
+    for (unsigned long i = 0; i < message_struct_size; i++) {
+        frame[written_bytes] = struct_copy[i];
+        // if (struct_copy[i] == (char)0x88 || struct_copy[i] == (char)0x81) {
+        //     written_bytes++;
+        //     frame[written_bytes] = (char)0xff;
+        // }
+        written_bytes++;
+    }
+    if (written_bytes < MINIMUM_PACKET_SIZE) {
+        written_bytes = MINIMUM_PACKET_SIZE;
     }
 
-    if (::send(socket, (const void*)this, message_struct_size, 0) == -1) {
+    if (::send(socket, (const void*)frame, written_bytes, 0) == -1) {
         return send_error;
     }
 
@@ -55,7 +66,8 @@ int KermitPacket::sendPacket(int socket) {
 }
 
 PacketError KermitPacket::receivePacket(int socket) {
-    int ret = recv(socket, this, sizeof(*this), 0);
+    char buffer[2 * sizeof(*this)];
+    int ret = recv(socket, buffer, sizeof(*this), 0);
 
     if (ret == -1) {
         if (errno == ETIMEDOUT) {
@@ -64,13 +76,24 @@ PacketError KermitPacket::receivePacket(int socket) {
         return recv_other_error;
     }
 
-    if (ret < (int)sizeof(this->header) + 1) {
+    int written_bytes = 0;
+    for (int i = 0; i < ret; i++) {
+        ((char*)this)[written_bytes] = buffer[i];
+        // if (buffer[i] == (char)0x88 || buffer[i] == (char)0x81) {
+        //     i++;
+        // }
+        written_bytes++;
+    }
+
+    if (written_bytes < (int)sizeof(this->header) + 1) {
         return message_received_too_small;
     }
 
     if (this->header.init_marker != KERMIT_INIT_MARKER) {
         return wrong_init_marker;
     }
+
+    this->printData();
 
     if (checkCRC() == false) {
         return wrong_crc;
@@ -146,7 +169,7 @@ PacketError KermitPacket::send(int socket, PacketType type, const char* data,
         }
 
         cerr << "data size: " << size << " ";
-        cerr.write(data + offset, size);
+        cerr.write(data + offset, size + 1);
         cerr << "\n";
 
         KermitPacket packet = KermitPacket(type, sequence);
@@ -419,6 +442,6 @@ void KermitPacket::printHeader() {
 void KermitPacket::printData() {
     // cerr << std::bitset<BUFFER_SIZE>(this->data) << "\n";
     cerr << "(" FONT_RED;
-    cerr.write(this->data, this->header.size);
+    cerr.write(this->data, this->header.size + 1);
     cerr << FONT_NORMAL ")\n";
 }
