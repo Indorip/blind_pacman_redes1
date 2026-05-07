@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
 
     cout << "Hello :)\n";
 
-    int socket = cria_raw_socket((char*)"enp2s0");
+    int socket = cria_raw_socket((char*)"enp3s0");
     if (socket == -1) {
         cerr << "Error when creating socket" << "\n";
         exit(1);

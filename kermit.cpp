@@ -40,7 +40,7 @@ int KermitPacket::sendPacket(int socket) {
         sizeof(this->header) + this->header.size + 1;
 
     // just so there's no problem with the size of the message
-    char frame[message_struct_size + MINIMUM_PACKET_SIZE];
+    char frame[2 * sizeof(*this)];
     char struct_copy[message_struct_size];
     memset(frame, 0, message_struct_size + MINIMUM_PACKET_SIZE);
 
@@ -48,10 +48,10 @@ int KermitPacket::sendPacket(int socket) {
     unsigned long written_bytes = 0;
     for (unsigned long i = 0; i < message_struct_size; i++) {
         frame[written_bytes] = struct_copy[i];
-        // if (struct_copy[i] == (char)0x88 || struct_copy[i] == (char)0x81) {
-        //     written_bytes++;
-        //     frame[written_bytes] = (char)0xff;
-        // }
+        if (struct_copy[i] == (char)0x88 || struct_copy[i] == (char)0x81) {
+            written_bytes++;
+            frame[written_bytes] = (char)0xff;
+        }
         written_bytes++;
     }
     if (written_bytes < MINIMUM_PACKET_SIZE) {
@@ -66,8 +66,9 @@ int KermitPacket::sendPacket(int socket) {
 }
 
 PacketError KermitPacket::receivePacket(int socket) {
+    // int max_received_size = 2 * sizeof(*this);
     char buffer[2 * sizeof(*this)];
-    int ret = recv(socket, buffer, sizeof(*this), 0);
+    int ret = recv(socket, buffer, 2 * sizeof(*this), 0);
 
     if (ret == -1) {
         if (errno == ETIMEDOUT) {
@@ -77,11 +78,11 @@ PacketError KermitPacket::receivePacket(int socket) {
     }
 
     int written_bytes = 0;
-    for (int i = 0; i < ret; i++) {
-        ((char*)this)[written_bytes] = buffer[i];
-        // if (buffer[i] == (char)0x88 || buffer[i] == (char)0x81) {
-        //     i++;
-        // }
+    for (int i = 0; i < ret && written_bytes < (int)sizeof(*this); i++) {
+        ((unsigned char*)this)[written_bytes] = buffer[i];
+        if (buffer[i] == (char)0x88 || buffer[i] == (char)0x81) {
+            i++;
+        }
         written_bytes++;
     }
 
