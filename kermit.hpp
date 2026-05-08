@@ -62,6 +62,9 @@ struct KermitPacket {
               1];  // data stores the message bytes and the crc right after;
                    // this buffer can store any message size from the protocol
 
+    KermitPacket();
+    KermitPacket(PacketType type, unsigned char sequence);
+
     // writes data to the message
     // TODO: this function needs to calculate the CRC too
     PacketError writeData(const char* data, int data_size);
