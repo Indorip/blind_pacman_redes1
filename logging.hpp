@@ -32,6 +32,7 @@ struct Logger {
     // Logger(const char* file_path);
     // ~Logger();
     static Logger initLogger(const char* file_path);
+    static Logger initLogger(FILE* file);
     static void terminateLogger(Logger* logger);
 
     void print(const char* fmt, ...);

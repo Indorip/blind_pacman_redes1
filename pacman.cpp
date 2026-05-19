@@ -6,7 +6,9 @@
 #include <fstream>
 #include <iostream>
 
-#include "macros.hpp"
+#include "logging.hpp"
+
+Logger pacman_logger = Logger::initLogger(stdout);
 
 using std::cerr;
 
@@ -489,15 +491,15 @@ int GameState::updateGameState(DirectionType directionPacman) {
     // Return Win Game
     if (this->remaining_pellets == 0) return 7;
 
-    int foundFile = this->pacman.updatePacman(this->grid, directionPacman);
-
-    // Die on Player Move
-    if (foundFile == -1) return -1;
-
     this->ghost[0].updateRed(this->grid);
     this->ghost[1].updateBlue(this->grid);
     this->ghost[2].updateGreen(this->grid);
     this->ghost[3].updateYellow(this->grid);
+
+    int foundFile = this->pacman.updatePacman(this->grid, directionPacman);
+
+    // Die on Player Move
+    if (foundFile == -1) return -1;
 
     // Player died on ghost move
     char check = *this->grid->at(this->pacman.position);
@@ -518,26 +520,50 @@ int GameState::updateGameState(DirectionType directionPacman) {
 
 void GameState::printGrid() {
     for (int i = 0; i < this->grid->rows; i++) {
-        for (int j = 0; i < this->grid->cols; j++) {
+        for (int j = 0; j < this->grid->cols; j++) {
             switch(*this->grid->at(i, j)) {
                 case WALL:
-                    printf("%s #  %s", );
+                    pacman_logger.printColor(color::white, "# ");
+                    break;
                 case PACMAN:
-                    printf("P ");
+                    pacman_logger.printColor(color::yellow, "@ ");
+                    break;
                 case EMPTY:
+                    pacman_logger.print("  ");
+                    break;
                 case RED:
+                    pacman_logger.printColor(color::red, "A ");
+                    break;
                 case BLUE:
+                    pacman_logger.printColor(color::blue, "A ");
+                    break;
                 case GREEN:
+                    pacman_logger.printColor(color::green, "A ");
+                    break;
                 case YELLOW:
+                    pacman_logger.printColor(color::cyan, "A ");
+                    break;
                 case FILE1: 
+                    pacman_logger.printColor(color::yellow, "o ");
+                    break;
                 case FILE2: 
+                    pacman_logger.printColor(color::yellow, "o ");
+                    break;
                 case FILE3: 
+                    pacman_logger.printColor(color::yellow, "o ");
+                    break;
                 case FILE4: 
+                    pacman_logger.printColor(color::yellow, "o ");
+                    break;
                 case FILE5: 
+                    pacman_logger.printColor(color::yellow, "o ");
+                    break;
                 case FILE6: 
+                    pacman_logger.printColor(color::yellow, "o ");
+                    break;
             }
-            printf("\n");
         }
+        pacman_logger.print("\n");
     }
 }
 /*

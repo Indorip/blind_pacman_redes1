@@ -48,6 +48,11 @@ Logger Logger::initLogger(const char* file_path) {
     return logger;
 }
 
+Logger Logger::initLogger(FILE* file) {
+    Logger logger = (Logger){.output_file = file};
+    return logger;
+}
+
 void Logger::terminateLogger(Logger* logger){
     if (!logger) return;
     if (!logger->output_file) return;
