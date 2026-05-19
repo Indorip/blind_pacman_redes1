@@ -1,3 +1,22 @@
+#define WALL 'X'
+#define PACMAN 'P'
+#define EMPTY '0'
+#define RED 'R'
+#define BLUE 'B'
+#define GREEN 'G'
+#define YELLOW 'Y'
+
+#define FILE1 '1'
+#define FILE2 '2'
+#define FILE3 '3'
+#define FILE4 '4'
+#define FILE5 '5'
+#define FILE6 '6'
+
+#define COLS 7
+#define ROWS 7
+
+
 struct Vec2 {
     int x, y;
 };
@@ -12,8 +31,10 @@ struct Grid {
     ~Grid();
 
     inline char* at(int row, int col);
+    inline char* at(Vec2 pos);
 
-    void readGrid(const char* filePath);
+    void readGrid(const char* filename);
+    void readGrid(const char* filename, int defPositions[12]);
 };
 typedef struct Grid Grid;
 
@@ -41,6 +62,7 @@ struct Pacman {
     int visibility;
 
     Pacman();
+    int updatePacman(Grid* grid, DirectionType directionPacman);
 };
 typedef struct Pacman Pacman;
 
@@ -49,11 +71,31 @@ struct Ghost {
     Vec2 position;
     int option;  // used when green decides if uses updateLeft or updateRight
     Direction direction;
-    void (*update)(struct Ghost* ghost, Grid* grid);
+    //int (*update)(struct Ghost* ghost, Grid* grid);
 
-    void updateRed(Grid* grid);
-    void updateBlue(Grid* grid);
-    void updateGreen(Grid* grid);
-    void updateYellow(Grid* grid);
+    int updateRed(Grid* grid);
+    int updateBlue(Grid* grid);
+    int updateGreen(Grid* grid);
+    int updateYellow(Grid* grid);
 };
 typedef struct Ghost Ghost;
+
+
+struct GameState {
+    Grid *grid;
+    Pacman pacman;
+    Ghost ghost[4];
+    // Todo Include Files for pellets;
+    int remaining_pellets;
+    int round;
+    int maxVisibility;
+
+    GameState(const char* mapFile);
+    ~GameState();
+    int updateGameState(DirectionType directionPacman);
+    char* readGameGrid(int* GridSize);
+
+    void printGrid();
+    void printGridBlind();
+};
+typedef GameState GameState;
