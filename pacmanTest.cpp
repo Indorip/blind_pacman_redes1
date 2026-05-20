@@ -5,7 +5,7 @@
 
 using std::cerr;
 using std::cout;
-
+/*
 void printGrid(char* grid, int size, int lineSize) {
     // cerr << "Enter Print Grid\n";
     for (int i = 0; i < size; i += lineSize) {
@@ -16,7 +16,7 @@ void printGrid(char* grid, int size, int lineSize) {
         cerr << '\n';
     }
 }
-
+*/
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         cout << "Less Arguments than expected\n";
@@ -31,10 +31,9 @@ int main(int argc, char* argv[]) {
         // char* gameGrid;
         // int readChars;
         // gameGrid = game.readGameGrid(&readChars);
-        cerr << "PRINTING\n";
-        // printGrid(game.grid->spots, 49, 7);
+        //cerr << "PRINTING\n";
         game.printGrid();
-        cerr << "FINISH PRINTING\n\n\n";
+        //cerr << "FINISH PRINTING\n\n\n";
         char direction;
         DirectionType pacDir;
         cerr << "Reading Input\n";
@@ -69,7 +68,8 @@ int main(int argc, char* argv[]) {
         if (gameReturn > 0)
             cerr << "\n\n\n\nFound File" << gameReturn << "\n\n\n\n\n\n";
     } while (gameReturn != -1 && gameReturn != 7);
-
+    
+    game.printGrid();
     if (gameReturn == 7) cerr << "\t\t\tYou Win!!!\n\n";
     if (gameReturn == -1) cerr << "\t\t\tYou Lose!!!\n\n";
 

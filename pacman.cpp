@@ -1,12 +1,15 @@
-#include "pacman.hpp"
-
 #include <string.h>
-
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 
 #include "logging.hpp"
+#include "pacman.hpp"
+
+// Return True if collided with a ghost
+#define GHOST_COLLISION(square) (square == RED || square == BLUE || square == GREEN || square == YELLOW)
+// Returns True if out of bounds
+#define CHECK_BOUNDS(position) (position.x < 0 || position.x >= grid->rows || position.y < 0 || position.y >= grid->cols)
 
 Logger pacman_logger = Logger::initLogger(stdout);
 
@@ -117,39 +120,20 @@ void Grid::readGrid(const char* filename, int defPositions[12]) {
     // Use tellg on end to ger file size
     std::streamsize file_size = file.tellg();
     file.seekg(0, std::ios::beg);
-    if (file_size < this->rows * this->cols * 2 - 1) return;
-
     char buffer[file_size];
     file.read(buffer, file_size);
-
-    // Não Tenho certeza sobre esse pedaço, talvez remover e só considerar sem
-    // fim de linha no csv
-    if (file_size >= this->rows * this->cols * 2) {
-        int gridWrite = 0;
-        int i = 0;
-
-        // While not EOF
-        while (i < file_size) {
-            // Read a Row ignoring separators
-            for (; i < i + this->rows * 2; i += 2) {
-                this->spots[gridWrite] = buffer[i];
-                defPositions[checkElement(buffer[i])] = gridWrite;
-                gridWrite++;
-            }
-            // Ignore \n
-            i++;
-        }
-    } else {
-        int gridWrite = 0;
-        int i = 0;
-        // While not EOF
-        while (i < file_size) {
+    
+    int gridWrite = 0;
+    int totalRead = 0;
+    // While not EOF
+    while (totalRead < file_size) {
+        // Read a Row ignoring separators
+        for (int i = 0; i < this->rows * 2; i += 2) {
             this->spots[gridWrite] = buffer[i];
             defPositions[checkElement(buffer[i])] = gridWrite;
             gridWrite++;
-            // Jump ','
-            i += 2;
         }
+        totalRead += this->rows * 2 + 1;
     }
     return;
 }
@@ -179,7 +163,7 @@ void Direction::pointRight() {
 // Pacman -------------------------------------------------------------
 
 Pacman::Pacman() {
-    this->position = {5, 5};
+    this->position = {0, 0};
     this->visibility = 1;
 }
 
@@ -188,32 +172,30 @@ int Pacman::updatePacman(Grid* grid, DirectionType directionPacman) {
     Vec2 nextPos = this->position;
     switch (directionPacman) {
         case up:
-            nextPos.x--;
-            break;
-        case down:
-            nextPos.x++;
-            break;
-        case left:
             nextPos.y--;
             break;
-        case right:
+        case down:
             nextPos.y++;
+            break;
+        case left:
+            nextPos.x--;
+            break;
+        case right:
+            nextPos.x++;
             break;
         default:
             return -2;
     }
-    if (nextPos.x < 0 || nextPos.x >= grid->cols || nextPos.y < 0 ||
-        nextPos.y >= grid->rows)
+
+    if (CHECK_BOUNDS(nextPos))
         return -2;
 
     char nextSquare = *(grid->at(nextPos));
 
     // Game Over
-    if (nextSquare == RED || nextSquare == BLUE || nextSquare == GREEN ||
-        nextSquare == YELLOW)
+    if (GHOST_COLLISION(nextSquare))
         return -1;
-
-    switch (nextSquare) {
+    else switch (nextSquare) {
         case WALL:
             // Decide if invalid input moves ghost or if only re-ask for input
             return -2;
@@ -241,9 +223,11 @@ int Pacman::updatePacman(Grid* grid, DirectionType directionPacman) {
             break;
     }
 
-    *(grid->at(this->position)) = EMPTY;
-    this->position = nextPos;
+    if (*(grid->at(this->position)) == PACMAN)
+        *(grid->at(this->position)) = EMPTY;
+    
     *(grid->at(nextPos)) = PACMAN;
+    this->position = nextPos;
 
     return foundFile;
 }
@@ -257,8 +241,13 @@ int Ghost::updateRed(Grid* grid) {
             .x = this->position.x + this->direction.v.x,
             .y = this->position.y + this->direction.v.y,
         };
-        char next_spot = grid->spots[next_pos.x + next_pos.y * grid->cols];
 
+        char next_spot;
+        if (CHECK_BOUNDS(next_pos))
+            next_spot = WALL;
+        else
+            next_spot = *grid -> at(next_pos);
+        
         switch (this->direction.type) {
             case DirectionType::up:
                 if (next_spot != EMPTY) {
@@ -309,7 +298,12 @@ int Ghost::updateBlue(Grid* grid) {
             .x = this->position.x + this->direction.v.x,
             .y = this->position.y + this->direction.v.y,
         };
-        char next_spot = grid->spots[next_pos.x + next_pos.y * grid->cols];
+
+        char next_spot;
+        if (CHECK_BOUNDS(next_pos))
+            next_spot = WALL;
+        else
+            next_spot = *grid -> at(next_pos);
 
         switch (this->direction.type) {
             case DirectionType::up:
@@ -387,7 +381,13 @@ int Ghost::updateYellow(Grid* grid) {
             .x = this->position.x + this->direction.v.x,
             .y = this->position.y + this->direction.v.y,
         };
-        char next_spot = grid->spots[next_pos.x + next_pos.y * grid->cols];
+
+        char next_spot;
+        if (CHECK_BOUNDS(next_pos))
+            next_spot = WALL;
+        else
+            next_spot = *grid -> at(next_pos);
+
 
         if (next_spot == EMPTY) {
             valid_next_position = true;
@@ -488,9 +488,7 @@ GameState::GameState(const char* mapFile) {
 GameState::~GameState() { this->grid->~Grid(); }
 
 int GameState::updateGameState(DirectionType directionPacman) {
-    // Return Win Game
-    if (this->remaining_pellets == 0) return 7;
-
+    
     this->ghost[0].updateRed(this->grid);
     this->ghost[1].updateBlue(this->grid);
     this->ghost[2].updateGreen(this->grid);
@@ -499,16 +497,14 @@ int GameState::updateGameState(DirectionType directionPacman) {
     int foundFile = this->pacman.updatePacman(this->grid, directionPacman);
 
     // Die on Player Move
-    if (foundFile == -1) return -1;
-
-    // Player died on ghost move
-    char check = *this->grid->at(this->pacman.position);
-    if (check == RED || check == BLUE || check == GREEN || check == YELLOW)
-        return -1;
+    if (foundFile == -1) return foundFile;
 
     // Return Next Square, if it is equal to a file value initiate transfer
     if (foundFile > 0) this->remaining_pellets--;
-
+    
+    // Return Win Game
+    if (this->remaining_pellets == 0) return 7;
+    
     // Update round and vilibility
     this->round++;
     if (this->round % 5 == 0)
@@ -541,7 +537,7 @@ void GameState::printGrid() {
                     pacman_logger.printColor(color::green, "A ");
                     break;
                 case YELLOW:
-                    pacman_logger.printColor(color::cyan, "A ");
+                    pacman_logger.printColor(color::magenta, "A ");
                     break;
                 case FILE1: 
                     pacman_logger.printColor(color::yellow, "o ");
