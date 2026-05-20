@@ -312,6 +312,9 @@ PacketError KermitPacket::confirmSend(int socket) {
 }
 
 PacketType KermitPacket::receive(int socket, std::vector<char>* buffer) {
+    // TODO: flush buffer
+    buffer->clear();
+
     kermit_logger.print("entering receive()\n");
     // cerr << "entering receive()\n";
     KermitPacket packet;

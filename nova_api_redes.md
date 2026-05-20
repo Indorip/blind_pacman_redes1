@@ -1,119 +1,113 @@
-_send_(socket, buffer, size) -> envia a mensagem inteira
-_confirmSend_(socket) -> envia fim de mensagem em um loop até receber ACK
+# Client:
 
-_receive_(socket, buffer, size) -> recebe uma mensagem e guarda em um buffer
-_confirmReceive_(socket) -> envia início de mensagem em loop até receber ACK
-
-Todas as funções são "bloqueantes".
-
+- `sendMovement()`
+- `waitForServer()`
 ```c
-// futuramente, essa função ainda vai quebrar o buffer em pacotes caso precise
-void send(int socket, void* buffer, int size) {
-    // cria packets do tipo .data
-    mensagem = cria_mensagem(DATA, buffer, size);
+game_is_running = true;
+do {
+    PacketType type = receive(socket, &buffer);
 
-    while (true) {
-        sucesso = mensagem.envia_mensagem(socket);
-        if (!sucesso) {
-            continue;
-        }
-
-        mensagem resposta;
-        bool msg_valida;
-        while (true) {
-            resultado = resposta.receiveMessage(socket);
-
-            if (resultado == timeout) {
-                break;
-            } else if (resultado == mensagem_inválida) {
-                msg_valida = false;
-                continue;
-            } else {
-                msg_valida = true;
-                break;
-            }
-        }
-
-        if (msg_valida) {
-            if (resposta.tipo == ack) {
-                return;
-            } else {
-                continue;
-            }
-        }
+    switch(type) {
+        case file:
+            // TODO (std::string receiveFile(socket, type, &buffer))
+            // receiveFile abre um arquivo com o nome no buffer ++ (_received.tipo)
+            // limpa o buffer
+            // manda uma mensagem dummy para o server passar para a próxima mensagem (os dados)
+            // recebe os dados 
+            // escreve os dados no arquivo
+            receiveFile(socket, type, &buffer); // TODO (abre arquivo com o que)
+            // TODO
+            // abre o arquivo (fork() -> execve("xdg-open", nome_do_arquivo))
+            openFile();
+            break;
+        case grid:
+            // TODO
+            // vai escrever o grid no buffer
+            receiveGrid(socket, &buffer); // TODO
+            printGrid();
+            break;
+        case move_req:
+            sendMovement(socket); // TODO
+            break;
+        case end_transmission:
+            endGame(buffer); // TODO
+            game_is_running = false;
+            break;
+        default:
     }
-}
+} while (game_is_running);
 ```
 
-```c
-void confirmSend(socket) {
-    mensagem = criaMensagem(MESSAGE_END, NULL, 0);
-    do {
-        resultado = sendMessage(socket, mensagem);
-        if (resultado != sucesso) {
-            continue;
-        }
+# Server: 
 
-        resposta = receiveMessage(socket);
+```cpp
 
-        if (resposta == timeout || resposta = mensagem_invalida) {
-            msg_valida = false;
-        } else {
-            msg_valida = true;
-        }
-
-    } while (msg_valida = false);
+void requestForMove(int socket) {
+    send(socket, req_move);
+    confirmSend(socket);
 }
-```
 
-```c
-// - é esperado que quem utilize essa api saiba de antemão o tamanho máximo das
-// mensagens transmitidas entre servidor e cliente;
-// - caso seja enviada uma mensagem maior do que buffer_size, os bytes
-//sobressalentes serão descartados
-void receive(int socket, void* buffer, unsigned int buffer_size) {
-    unsigned int tamanho_mensagem_atual = 0;
-    mensagem mensagem;
+void sendGrid(int socket, GameState* game) {
+    const char* grid = game->generateGrid(int);
 
-    // TODO: provavelmente precisa de um loop pra receber mensagem do tipo MESSAGE_INIT
-    while (true) {
-        // lógica para receber um message init
-        // se receber uma mensagem normal, passar para o próximo
-        // loop e processar mensagem normalmente
+    send(socket, visualization, NULL);
+    confirmSend(socket);
+
+    receive(socket); // dummy
+
+    send(socket, data, grid);
+    confirmSend(socket);
+}
+
+vector<char>* readEntireFile(const char* filepath) {
+    int size = "read"(filepath);
+
+    vector<char>* a = new vector<char>();
+    a.insert(file);
+
+    return a;
+}
+
+// carregar arquivo
+// inicializar o jogo
+bool game_running = true;
+do {
+    sendGrid(socket, game);
+    receive(socket); // dummy
+    requestForMove(socket);
+
+    type = receive(socket, &buffer);
+
+    switch(type) {
+        case move:
+            status = game->update(getDir(&buffer));
+            break;
+        default:
+            logger.print("não recebeu o que deveria\n");
     }
 
-    while(true) {
-        // TODO: estruturar a lógica de loops para receber mensagens
-        // (é pra ser parecida com a do loop que já tá no cliente)
-        mensagem.receiveMessage();
-
-        // ultrapassamos o limite do buffer oferecido
-        if (tamanho_mensagem_atual + mensagem.header.size > buffer_size) return;
-
-        memcpy(buffer, mensagem.data, mensagem.header.size);
-        tamanho_mensagem_atual += mensagem.header.size;
+    switch(status) {
+        case FILE:
+            file = readEntireFile();
+            send(socket, tipo, file->data());
+            confirmSend(socket);
+            break;
+        case win:
+            // ... sendWin();
+            game_running = false;
+            break;
+        case lose:
+            // ... sendLose();
+            game_running = false;
+            break;
     }
-}
+
+} while(game_running);
 ```
 
+
+
 ```c
-void confirmReceive(int socket) {
-    mensagem = criaMensagem(MESSAGE_INIT, NULL, 0);
-    do {
-        resultado = mensagem.sendMessage();
-        if (resultado != sucesso) {
-            continue;
-        }
+int main()
 
-        resposta = receiveMessage(socket);
-
-        if (resposta == timeout || resposta == mensagem_invalida) {
-            msg_valida = false;
-        } else {
-            if (resposta.type != ack) continue;
-            msg_valida = true;
-        }
-
-    } while (msg_valida = false);
-}
 ```
