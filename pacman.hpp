@@ -99,3 +99,5 @@ struct GameState {
     void printGridBlind();
 };
 typedef GameState GameState;
+
+void printGridFromBuffer(const char* buffer, int rows, int cols);

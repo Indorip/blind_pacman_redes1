@@ -1,21 +1,27 @@
+#include "pacman.hpp"
+
 #include <string.h>
+
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 
 #include "logging.hpp"
-#include "pacman.hpp"
 
 // Return True if collided with a ghost
-#define GHOST_COLLISION(square) (square == RED || square == BLUE || square == GREEN || square == YELLOW)
+#define GHOST_COLLISION(square) \
+    (square == RED || square == BLUE || square == GREEN || square == YELLOW)
 // Returns True if out of bounds
-#define CHECK_BOUNDS(x,y) (x < 0 || x >= grid->rows || y < 0 || y >= grid->cols)
+#define CHECK_BOUNDS(x, y) \
+    (x < 0 || x >= grid->rows || y < 0 || y >= grid->cols)
 
 Logger pacman_logger = Logger::initLogger(stdout);
 
 using std::cerr;
 
-int getRand(int min, int max) { return (rand() % (max - min)) + min; }
+int getRand(int min, int max) {
+    return (rand() % (max - min)) + min;
+}
 
 // Expects empty write spot on 11
 inline int checkElement(char element) {
@@ -55,7 +61,9 @@ Grid::Grid(int rows, int cols) {
     this->spots = new char[rows * cols];
 }
 
-Grid::~Grid() { delete this->spots; }
+Grid::~Grid() {
+    delete this->spots;
+}
 
 inline char* Grid::at(int row, int col) {
     return &this->spots[row + col * this->cols];
@@ -122,7 +130,7 @@ void Grid::readGrid(const char* filename, int defPositions[12]) {
     file.seekg(0, std::ios::beg);
     char buffer[file_size];
     file.read(buffer, file_size);
-    
+
     int gridWrite = 0;
     int readPos = 0;
     // While not EOF
@@ -187,43 +195,43 @@ int Pacman::updatePacman(Grid* grid, DirectionType directionPacman) {
             return -2;
     }
 
-    if (CHECK_BOUNDS(nextPos.x, nextPos.y))
-        return -2;
+    if (CHECK_BOUNDS(nextPos.x, nextPos.y)) return -2;
 
     char nextSquare = *(grid->at(nextPos));
 
     // Game Over
     if (GHOST_COLLISION(nextSquare))
         return -1;
-    else switch (nextSquare) {
-        case WALL:
-            return -2;
-        case FILE1:
-            foundFile = 1;
-            break;
-        case FILE2:
-            foundFile = 2;
-            break;
-        case FILE3:
-            foundFile = 3;
-            break;
-        case FILE4:
-            foundFile = 4;
-            break;
-        case FILE5:
-            foundFile = 5;
-            break;
-        case FILE6:
-            foundFile = 6;
-            break;
-        default:
-            foundFile = 0;
-            break;
-    }
+    else
+        switch (nextSquare) {
+            case WALL:
+                return -2;
+            case FILE1:
+                foundFile = 1;
+                break;
+            case FILE2:
+                foundFile = 2;
+                break;
+            case FILE3:
+                foundFile = 3;
+                break;
+            case FILE4:
+                foundFile = 4;
+                break;
+            case FILE5:
+                foundFile = 5;
+                break;
+            case FILE6:
+                foundFile = 6;
+                break;
+            default:
+                foundFile = 0;
+                break;
+        }
 
     if (*(grid->at(this->position)) == PACMAN)
         *(grid->at(this->position)) = EMPTY;
-    
+
     *(grid->at(nextPos)) = PACMAN;
     this->position = nextPos;
 
@@ -236,8 +244,7 @@ int Ghost::updateRed(Grid* grid) {
     int counter = 0;
     Vec2 next_pos;
     do {
-        if (counter == 4)
-            return 1;
+        if (counter == 4) return 1;
         next_pos = {
             .x = this->position.x + this->direction.v.x,
             .y = this->position.y + this->direction.v.y,
@@ -247,8 +254,8 @@ int Ghost::updateRed(Grid* grid) {
         if (CHECK_BOUNDS(next_pos.x, next_pos.y))
             next_spot = WALL;
         else
-            next_spot = *grid -> at(next_pos);
-        
+            next_spot = *grid->at(next_pos);
+
         switch (this->direction.type) {
             case DirectionType::up:
                 if (next_spot != EMPTY) {
@@ -297,8 +304,7 @@ int Ghost::updateBlue(Grid* grid) {
     int counter = 0;
     Vec2 next_pos;
     do {
-        if (counter == 4)
-            return 1;
+        if (counter == 4) return 1;
         next_pos = {
             .x = this->position.x + this->direction.v.x,
             .y = this->position.y + this->direction.v.y,
@@ -308,7 +314,7 @@ int Ghost::updateBlue(Grid* grid) {
         if (CHECK_BOUNDS(next_pos.x, next_pos.y))
             next_spot = WALL;
         else
-            next_spot = *grid -> at(next_pos);
+            next_spot = *grid->at(next_pos);
 
         switch (this->direction.type) {
             case DirectionType::up:
@@ -371,11 +377,9 @@ int Ghost::updateYellow(Grid* grid) {
     bool checkLeft = false;
     bool checkRight = false;
 
-
     Vec2 next_pos;
     do {
-        if (checkUp && checkDown && checkLeft && checkRight)
-            return 1;
+        if (checkUp && checkDown && checkLeft && checkRight) return 1;
         int choice = rand() % 4;  // up, left, down, right
         switch (choice) {
             case up:
@@ -404,8 +408,7 @@ int Ghost::updateYellow(Grid* grid) {
         if (CHECK_BOUNDS(next_pos.x, next_pos.y))
             next_spot = WALL;
         else
-            next_spot = *grid -> at(next_pos);
-
+            next_spot = *grid->at(next_pos);
 
         if (next_spot == EMPTY) {
             valid_next_position = true;
@@ -427,7 +430,7 @@ GameState::GameState(const char* mapFile) {
 
     int posDefined[12] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     Vec2 genPosition;
-    
+
     this->ghost[0].type = RED;
     this->ghost[1].type = BLUE;
     this->ghost[2].type = GREEN;
@@ -435,7 +438,7 @@ GameState::GameState(const char* mapFile) {
 
     this->grid = new Grid(ROWS, COLS);
     this->grid->readGrid(mapFile, posDefined);
-    
+
     // Check if Pacman already defined
     if (posDefined[0] == -1) {
         do {
@@ -503,10 +506,11 @@ GameState::GameState(const char* mapFile) {
     this->remaining_pellets = 6;
 }
 
-GameState::~GameState() { this->grid->~Grid(); }
+GameState::~GameState() {
+    this->grid->~Grid();
+}
 
 int GameState::updateGameState(DirectionType directionPacman) {
-    
     this->ghost[0].updateRed(this->grid);
     this->ghost[1].updateBlue(this->grid);
     this->ghost[2].updateGreen(this->grid);
@@ -519,7 +523,7 @@ int GameState::updateGameState(DirectionType directionPacman) {
 
     // Return Next Square, if it is equal to a file value initiate transfer
     if (foundFile > 0) this->remaining_pellets--;
-    
+
     // Return Win Game
     if (this->remaining_pellets == 0) return 7;
 
@@ -535,7 +539,7 @@ int GameState::updateGameState(DirectionType directionPacman) {
 void GameState::printGrid() {
     for (int i = 0; i < this->grid->rows; i++) {
         for (int j = 0; j < this->grid->cols; j++) {
-            switch(*this->grid->at(i, j)) {
+            switch (*this->grid->at(i, j)) {
                 case WALL:
                     pacman_logger.printColor(color::white, "# ");
                     break;
@@ -557,22 +561,22 @@ void GameState::printGrid() {
                 case YELLOW:
                     pacman_logger.printColor(color::magenta, "A ");
                     break;
-                case FILE1: 
+                case FILE1:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE2: 
+                case FILE2:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE3: 
+                case FILE3:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE4: 
+                case FILE4:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE5: 
+                case FILE5:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE6: 
+                case FILE6:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
             }
@@ -582,12 +586,87 @@ void GameState::printGrid() {
 }
 
 void GameState::printGridBlind() {
-
-    for (int i = this -> pacman.position.y - this -> pacman.visibility; i <= this -> pacman.position.y + this -> pacman.visibility; i++) {
-        for (int j = this -> pacman.position.x - this -> pacman.visibility; j <= this -> pacman.position.x + this -> pacman.visibility; j++) {
+    for (int i = this->pacman.position.y - this->pacman.visibility;
+         i <= this->pacman.position.y + this->pacman.visibility; i++) {
+        for (int j = this->pacman.position.x - this->pacman.visibility;
+             j <= this->pacman.position.x + this->pacman.visibility; j++) {
             if (CHECK_BOUNDS(i, j))
                 pacman_logger.printColor(color::white, "# ");
-            else switch(*this->grid->at(i, j)) {
+            else
+                switch (*this->grid->at(i, j)) {
+                    case WALL:
+                        pacman_logger.printColor(color::white, "# ");
+                        break;
+                    case PACMAN:
+                        pacman_logger.printColor(color::yellow, "@ ");
+                        break;
+                    case EMPTY:
+                        pacman_logger.print("  ");
+                        break;
+                    case RED:
+                        pacman_logger.printColor(color::red, "A ");
+                        break;
+                    case BLUE:
+                        pacman_logger.printColor(color::blue, "A ");
+                        break;
+                    case GREEN:
+                        pacman_logger.printColor(color::green, "A ");
+                        break;
+                    case YELLOW:
+                        pacman_logger.printColor(color::magenta, "A ");
+                        break;
+                    case FILE1:
+                        pacman_logger.printColor(color::yellow, "o ");
+                        break;
+                    case FILE2:
+                        pacman_logger.printColor(color::yellow, "o ");
+                        break;
+                    case FILE3:
+                        pacman_logger.printColor(color::yellow, "o ");
+                        break;
+                    case FILE4:
+                        pacman_logger.printColor(color::yellow, "o ");
+                        break;
+                    case FILE5:
+                        pacman_logger.printColor(color::yellow, "o ");
+                        break;
+                    case FILE6:
+                        pacman_logger.printColor(color::yellow, "o ");
+                        break;
+                }
+        }
+        pacman_logger.print("\n");
+    }
+}
+
+// Return Char Buffer containing visible map. Buffer has size GridSize, returned
+// through argument.
+char* GameState::readGameGrid(int* GridSize) {
+    int readAmount = (this->pacman.visibility * 2 + 1);
+    readAmount *= readAmount;
+    char* returnGrid = new char[readAmount];
+    int written = 0;
+
+    for (int i = this->pacman.position.y - this->pacman.visibility;
+         i <= this->pacman.position.y + this->pacman.visibility; i++)
+        for (int j = this->pacman.position.x - this->pacman.visibility;
+             j <= this->pacman.position.x + this->pacman.visibility; j++) {
+            if (CHECK_BOUNDS(i, j))
+                returnGrid[written] = WALL;
+            else
+                returnGrid[written] = *this->grid->at(i, j);
+            written++;
+        }
+
+    *GridSize = written;
+
+    return returnGrid;
+}
+
+void printGridFromBuffer(const char* buffer, int rows, int cols) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            switch (buffer[i * rows + j]) {
                 case WALL:
                     pacman_logger.printColor(color::white, "# ");
                     break;
@@ -609,22 +688,22 @@ void GameState::printGridBlind() {
                 case YELLOW:
                     pacman_logger.printColor(color::magenta, "A ");
                     break;
-                case FILE1: 
+                case FILE1:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE2: 
+                case FILE2:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE3: 
+                case FILE3:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE4: 
+                case FILE4:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE5: 
+                case FILE5:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
-                case FILE6: 
+                case FILE6:
                     pacman_logger.printColor(color::yellow, "o ");
                     break;
             }
@@ -632,24 +711,3 @@ void GameState::printGridBlind() {
         pacman_logger.print("\n");
     }
 }
-
-// Return Char Buffer containing visible map. Buffer has size GridSize, returned through argument. 
-char* GameState::readGameGrid(int* GridSize) {
-    int readAmount = (this -> pacman.visibility * 2 + 1);
-    readAmount *= readAmount;
-    char* returnGrid = new char[readAmount];
-    int written = 0; 
-
-    for (int i = this -> pacman.position.y - this -> pacman.visibility; i <= this -> pacman.position.y + this -> pacman.visibility; i++) 
-        for (int j = this -> pacman.position.x - this -> pacman.visibility; j <= this -> pacman.position.x + this -> pacman.visibility; j++) 
-        {
-            if (CHECK_BOUNDS(i, j)) returnGrid[written] = WALL;
-            else returnGrid[written] = *this -> grid -> at(i, j);
-            written++;
-        }
-
-    *GridSize = written;
-
-    return returnGrid;
-}
-

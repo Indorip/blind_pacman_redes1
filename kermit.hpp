@@ -41,6 +41,7 @@ enum PacketType {
     error = 15,
     end_transmission = 16,
     finalize = 17,
+    request_movement = 18,
 };
 typedef enum PacketType PacketType;
 
@@ -86,7 +87,7 @@ struct KermitPacket {
     PacketError send(int socket, PacketType type, const char* data,
                      unsigned int data_size);
     PacketError confirmSend(int socket);
-    PacketType receive(int socket, std::vector<char> *buffer);
+    PacketType receive(int socket, std::vector<char>* buffer);
     // requires message to be fully written excluding CRC
     PacketError calculateCRC(bool is_check, char* crc_return);
     void setCRC();
