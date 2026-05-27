@@ -1,12 +1,12 @@
 #include <string.h>
 
 #include <fstream>
-#include <vector>
 #include <iostream>
+#include <vector>
 
+#include "kermit.hpp"
 #include "logging.hpp"
 #include "pacman.hpp"
-#include "kermit.hpp"
 #include "raw_sockets.hpp"
 
 #define FILE1NAME "1.txt"
@@ -31,16 +31,16 @@ void sendGrid(int socket, GameState* game) {
     std::vector<char> buffer;
     int gridSize, center;
     const char* grid = game->readGameGrid(&gridSize, &center);
-    int rows = game -> pacman.visibility * 2 + 1;
-    buffer.resize(3*sizeof(int));
+    int rows = game->pacman.visibility * 2 + 1;
+    buffer.resize(3 * sizeof(int));
     memcpy(buffer.data(), &rows, sizeof(int));
     memcpy(buffer.data() + sizeof(int), &rows, sizeof(int));
-    memcpy(buffer.data() + 2*sizeof(int), &center, sizeof(int));
+    memcpy(buffer.data() + 2 * sizeof(int), &center, sizeof(int));
 
     packet.send(socket, visualize, buffer.data(), buffer.size());
     packet.confirmSend(socket);
-    packet.receive(socket, &buffer); // dummy
-    
+    packet.receive(socket, &buffer);  // dummy
+
     packet.send(socket, data, grid, gridSize);
     packet.confirmSend(socket);
 }
@@ -74,8 +74,9 @@ void sendFile(int socket, const char* filename, PacketType type) {
 
     packet.send(socket, data, buff, size);
     packet.confirmSend(socket);
-}
 
+    packet.receive(socket, &aux);  // dummy
+}
 
 // Win and Lose do Same Thing For Now
 void sendWin(int socket) {
@@ -99,9 +100,8 @@ void sendLose(int socket) {
     packet.receive(socket, &buffer);  // dummy
 }
 
-
 void runServer(int socket, const char* gameFile) {
-    //Logger logger = Logger::initLogger("server.log");
+    // Logger logger = Logger::initLogger("server.log");
     setKermitLogger("server.log");
     std::vector<char> buffer;  // auxiliary buffer for storing messages
     GameState* game;
@@ -117,9 +117,9 @@ void runServer(int socket, const char* gameFile) {
 
     bool game_is_running = true;
 
+    sendGrid(socket, game);
+    packet.receive(socket, &buffer);  // dummy
     do {
-        sendGrid(socket, game);
-        packet.receive(socket, &buffer); // dummy
         requestForMove(socket);
 
         type = packet.receive(socket, &buffer);
@@ -138,50 +138,52 @@ void runServer(int socket, const char* gameFile) {
                 pacDir = right;
                 break;
             default:
-                //logger.print("não recebeu movimento valido\n");
-                pacDir = invalid;   
+                // logger.print("não recebeu movimento valido\n");
+                pacDir = invalid;
         }
 
-        status = game -> updateGameState(pacDir);
-    
-        switch (status)
-        {
-        case 1:
-            sendFile(socket, FILE1NAME, txt);
-            break;
-        case 2:
-            sendFile(socket, FILE2NAME, txt);
-            break;
-        case 3:
-            sendFile(socket, FILE3NAME, jpg);
-            break;
-        case 4:
-            sendFile(socket, FILE4NAME, jpg);
-            break;
-        case 5:
-            //sendFile(socket, FILE5NAME, mp4);
-            break;
-        case 6:
-            //sendFile(socket, FILE6NAME, mp4);
-            break;
-        case WIN:
-            sendGrid(socket, game);
-            packet.receive(socket, &buffer);
-            sendWin(socket);
-            game_is_running = false;
-            break;
-        case LOSE:
-            sendGrid(socket, game);
-            packet.receive(socket, &buffer);
-            sendLose(socket);
-            game_is_running = false;
-            break;
-        
-        default:
-            break;
+        status = game->updateGameState(pacDir);
+
+        sendGrid(socket, game);
+        packet.receive(socket, &buffer);
+
+        switch (status) {
+            case 1:
+                sendFile(socket, FILE1NAME, txt);
+                break;
+            case 2:
+                sendFile(socket, FILE2NAME, txt);
+                break;
+            case 3:
+                sendFile(socket, FILE3NAME, jpg);
+                break;
+            case 4:
+                sendFile(socket, FILE4NAME, jpg);
+                break;
+            case 5:
+                // sendFile(socket, FILE5NAME, mp4);
+                break;
+            case 6:
+                // sendFile(socket, FILE6NAME, mp4);
+                break;
+            case WIN:
+                sendGrid(socket, game);
+                packet.receive(socket, &buffer);
+                sendWin(socket);
+                game_is_running = false;
+                break;
+            case LOSE:
+                sendGrid(socket, game);
+                packet.receive(socket, &buffer);
+                sendLose(socket);
+                game_is_running = false;
+                break;
+
+            default:
+                break;
         }
 
     } while (game_is_running);
 
-    //Logger::terminateLogger(&logger);
+    // Logger::terminateLogger(&logger);
 }

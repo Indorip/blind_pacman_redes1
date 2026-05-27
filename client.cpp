@@ -126,7 +126,9 @@ void openFile(const std::vector<char>* filename, PacketType type) {
         exit(1);
     }
 
-    struct passwd* pw = getpwnam("dalien");
+    const char* user = getenv("SUDO_USER");
+    struct passwd* pw = getpwnam(user);
+    // struct passwd* pw = getpwnam("dalien");
     if (!pw) exit(1);
 
     // child process

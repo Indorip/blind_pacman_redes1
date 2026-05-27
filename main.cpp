@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    int socket = cria_raw_socket((char*)"enp5s0");
+    int socket = cria_raw_socket((char*)"enp2s0");
     if (socket == -1) {
         cerr << "Error when creating socket" << "\n";
         exit(1);
