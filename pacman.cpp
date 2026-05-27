@@ -288,6 +288,8 @@ int Ghost::updateRed(Grid* grid) {
                     valid_next_position = true;
                 }
                 break;
+            default:
+                break;
         }
         counter++;
     } while (!valid_next_position);
@@ -347,6 +349,8 @@ int Ghost::updateBlue(Grid* grid) {
                 } else {
                     valid_next_position = true;
                 }
+                break;
+            default:
                 break;
         }
         counter++;
@@ -482,6 +486,8 @@ GameState::GameState(const char* mapFile) {
             case up:
                 this->ghost[i].direction.pointUp();
                 break;
+            default:
+                break;
         }
     }
 
@@ -519,13 +525,13 @@ int GameState::updateGameState(DirectionType directionPacman) {
     int foundFile = this->pacman.updatePacman(this->grid, directionPacman);
 
     // Die on Player Move
-    if (foundFile == -1) return foundFile;
+    if (foundFile == LOSE) return LOSE;
 
     // Return Next Square, if it is equal to a file value initiate transfer
     if (foundFile > 0) this->remaining_pellets--;
 
     // Return Win Game
-    if (this->remaining_pellets == 0) return 7;
+    if (this->remaining_pellets == 0) return WIN;
 
     // Update round and vilibility
     this->round++;
@@ -591,7 +597,7 @@ void GameState::printGridBlind() {
         for (int j = this->pacman.position.x - this->pacman.visibility;
              j <= this->pacman.position.x + this->pacman.visibility; j++) {
             if (CHECK_BOUNDS(i, j))
-                pacman_logger.printColor(color::white, "# ");
+                pacman_logger.printColor(color::black, "# ");
             else
                 switch (*this->grid->at(i, j)) {
                     case WALL:
@@ -641,7 +647,7 @@ void GameState::printGridBlind() {
 
 // Return Char Buffer containing visible map. Buffer has size GridSize, returned
 // through argument.
-char* GameState::readGameGrid(int* GridSize) {
+char* GameState::readGameGrid(int* GridSize, int* center) {
     int readAmount = (this->pacman.visibility * 2 + 1);
     readAmount *= readAmount;
     char* returnGrid = new char[readAmount];
@@ -652,23 +658,28 @@ char* GameState::readGameGrid(int* GridSize) {
         for (int j = this->pacman.position.x - this->pacman.visibility;
              j <= this->pacman.position.x + this->pacman.visibility; j++) {
             if (CHECK_BOUNDS(i, j))
-                returnGrid[written] = WALL;
+                returnGrid[written] = OUTBOUNDS;
             else
                 returnGrid[written] = *this->grid->at(i, j);
             written++;
         }
 
     *GridSize = written;
+    *center = written/2;
 
     return returnGrid;
 }
 
 void printGridFromBuffer(const char* buffer, int rows, int cols) {
+    pacman_logger.print("\033[2J\033[H");
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
             switch (buffer[i * rows + j]) {
                 case WALL:
                     pacman_logger.printColor(color::white, "# ");
+                    break;
+                case OUTBOUNDS:
+                    pacman_logger.printColor(color::black, "# ");
                     break;
                 case PACMAN:
                     pacman_logger.printColor(color::yellow, "@ ");
@@ -689,16 +700,16 @@ void printGridFromBuffer(const char* buffer, int rows, int cols) {
                     pacman_logger.printColor(color::magenta, "A ");
                     break;
                 case FILE1:
-                    pacman_logger.printColor(color::yellow, "o ");
+                    pacman_logger.printColor(color::yellow, "1 ");
                     break;
                 case FILE2:
-                    pacman_logger.printColor(color::yellow, "o ");
+                    pacman_logger.printColor(color::yellow, "2 ");
                     break;
                 case FILE3:
-                    pacman_logger.printColor(color::yellow, "o ");
+                    pacman_logger.printColor(color::yellow, "3 ");
                     break;
                 case FILE4:
-                    pacman_logger.printColor(color::yellow, "o ");
+                    pacman_logger.printColor(color::yellow, "4 ");
                     break;
                 case FILE5:
                     pacman_logger.printColor(color::yellow, "o ");

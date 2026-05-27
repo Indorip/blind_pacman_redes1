@@ -5,6 +5,8 @@
 #define BLUE 'B'
 #define GREEN 'G'
 #define YELLOW 'Y'
+#define OUTBOUNDS '#'
+
 
 #define FILE1 '1'
 #define FILE2 '2'
@@ -12,6 +14,9 @@
 #define FILE4 '4'
 #define FILE5 '5'
 #define FILE6 '6'
+
+#define WIN 7
+#define LOSE -1
 
 #define COLS 7
 #define ROWS 7
@@ -43,6 +48,7 @@ enum DirectionType {
     left = 1,
     down = 2,
     right = 3,
+    invalid = 4,
 };
 typedef enum DirectionType DirectionType;
 
@@ -93,7 +99,7 @@ struct GameState {
     GameState(const char* mapFile);
     ~GameState();
     int updateGameState(DirectionType directionPacman);
-    char* readGameGrid(int* GridSize);
+    char* readGameGrid(int* GridSize, int* center);
 
     void printGrid();
     void printGridBlind();
