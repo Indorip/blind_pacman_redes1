@@ -156,6 +156,34 @@ void openFile(const std::vector<char>* filename, PacketType type) {
     wait(0);  // I don't think we need to wait for the child process to die
 }
 
+void deleteFile(const std::vector<char>* filename, PacketType type) {
+    std::vector<char> copy;
+    const char* output_suffix;
+
+    for (char c : *filename) {
+        copy.push_back(c);
+    }
+
+    switch (type) {
+        case txt:
+            output_suffix = "_received.txt";
+            break;
+        case jpg:
+            output_suffix = "_received.jpg";
+            break;
+        case mp4:
+            output_suffix = "_received.mp4";
+            break;
+        default:
+            cerr << "did not receive a file as parameter\n";
+            exit(1);
+    }
+    copy.insert(copy.end(), output_suffix,
+                output_suffix + strlen(output_suffix));
+    copy.push_back(0);
+    remove(copy.data());
+}
+
 int runClient(int socket) {
     //Logger client_logger = Logger::initLogger("client.log");
     setKermitLogger("client.log");
@@ -215,18 +243,21 @@ int runClient(int socket) {
                 cerr << "TXT OUTSIDE\n";
                 receiveFile(socket, type, &buffer);
                 openFile(&buffer, txt);
+                deleteFile(&buffer, txt);
                 break;
 
             case jpg:
                 cerr << "JPG OUTSIDE\n";
                 receiveFile(socket, type, &buffer);
                 openFile(&buffer, jpg);
+                deleteFile(&buffer, jpg);
                 break;
 
             case mp4:
                 cerr << "MP4 OUTSIDE\n";
                 receiveFile(socket, type, &buffer);
                 openFile(&buffer, mp4);
+                deleteFile(&buffer, mp4);
                 break;
 
             case end_transmission:
