@@ -1,5 +1,6 @@
-// compile with: g++ kermit.cpp logging.cpp pacman.cpp raw_sockets.cpp client.cpp -o client
-// 
+// compile with: g++ kermit.cpp logging.cpp pacman.cpp raw_sockets.cpp
+// client.cpp -o client
+//
 
 #include <pwd.h>
 #include <string.h>
@@ -137,23 +138,40 @@ void openFile(const std::vector<char>* filename, PacketType type) {
         setuid(pw->pw_uid);
         setenv("HOME", pw->pw_dir, 1);
 
+        // Derive the runtime dir from UID — works even when sudo strips env
+        // vars
+        std::string runtime_dir = "/run/user/" + std::to_string(pw->pw_uid);
+        setenv("XDG_RUNTIME_DIR", runtime_dir.c_str(), 1);
+
         cerr << "opening file: (" << (char*)copy.data() << ")\n";
 
-        // filename->push_back(0);  // making sure the name is null-terminated
+        // if (type != mp4) {
         char* args[] = {
             (char*)"xdg-open",
             (char*)copy.data(),
-            // (char*)"&",
             nullptr,
         };
+        // cerr << "child PID: " << getpid() << "\n";
         execvp("xdg-open", args);
+        // }
+        // else {
+        //     char* args[] = {
+        //         (char*)"vlc",
+        //         (char*)"--no-one-instance",
+        //         (char*)"--play-and-exit",
+        //         (char*)copy.data(),
+        //         nullptr,
+        //     };
+        //     cerr << "child PID: " << getpid() << "\n";
+        //     execvp("vlc", args);
+        // }
 
         cerr << "error on execl\n";
         perror("execvp");
         exit(1);
     }
 
-    wait(0);  // I don't think we need to wait for the child process to die
+    wait(0);
 }
 
 void deleteFile(const std::vector<char>* filename, PacketType type) {
@@ -185,7 +203,7 @@ void deleteFile(const std::vector<char>* filename, PacketType type) {
 }
 
 int runClient(int socket) {
-    //Logger client_logger = Logger::initLogger("client.log");
+    // Logger client_logger = Logger::initLogger("client.log");
     setKermitLogger("client.log");
     std::vector<char> buffer;  // auxiliary buffer for storing messages
 
@@ -234,7 +252,7 @@ int runClient(int socket) {
                 // TODO: change cerr to logger later
                 cerr << "rows: " << rows << "\n";
                 cerr << "cols: " << cols << "\n";
-                
+
                 receiveGrid(socket, &buffer);
                 printGridFromBuffer(buffer.data(), rows, cols);
                 break;
@@ -274,10 +292,10 @@ int runClient(int socket) {
     cerr << game_is_running << '\n';
     if (game_is_running == '1') {
         cerr << "YOU WIN THE GAME!!!\n";
-    } else if (game_is_running == '2'){
+    } else if (game_is_running == '2') {
         cerr << "YOU LOSE!!!\n";
     }
-    //Logger::terminateLogger(&client_logger);
+    // Logger::terminateLogger(&client_logger);
     return 0;
 }
 /*

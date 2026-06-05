@@ -176,6 +176,8 @@ void runServer(int socket, const char* gameFile) {
     if (game->win == -1) {
         sendGrid(socket, game);
         packet.receive(socket, &buffer);
+        sendFile(socket, "lose.mp4", mp4);
+        // packet.receive(socket, &buffer);
         sendLose(socket);
     } 
     // Win
