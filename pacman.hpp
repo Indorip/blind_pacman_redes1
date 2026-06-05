@@ -18,8 +18,8 @@
 #define WIN 7
 #define LOSE -1
 
-#define COLS 7
-#define ROWS 7
+#define COLS 40
+#define ROWS 40
 
 
 struct Vec2 {

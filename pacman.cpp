@@ -526,7 +526,7 @@ GameState::GameState(const char* mapFile) {
     else
         this->maxVisibility = this->grid->rows;
 
-    this->printGrid();
+    //this->printGrid();
     this->win = 0;
     this->round = 0;
     this->remaining_pellets = 6;
