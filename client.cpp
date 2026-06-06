@@ -145,33 +145,43 @@ void openFile(const std::vector<char>* filename, PacketType type) {
 
         cerr << "opening file: (" << (char*)copy.data() << ")\n";
 
-        // if (type != mp4) {
-        char* args[] = {
-            (char*)"xdg-open",
-            (char*)copy.data(),
-            nullptr,
-        };
-        // cerr << "child PID: " << getpid() << "\n";
-        execvp("xdg-open", args);
-        // }
-        // else {
-        //     char* args[] = {
-        //         (char*)"vlc",
-        //         (char*)"--no-one-instance",
-        //         (char*)"--play-and-exit",
-        //         (char*)copy.data(),
-        //         nullptr,
-        //     };
-        //     cerr << "child PID: " << getpid() << "\n";
-        //     execvp("vlc", args);
-        // }
+        // char* args[] = {
+        //     (char*)"xdg-open",
+        //     (char*)copy.data(),
+        //     nullptr,
+        // };
+        // execvp("xdg-open", args);
+        if (type == txt) {
+            char* args[] = {
+                (char*)"gedit",
+                (char*)copy.data(),
+                nullptr
+            };
+            execvp("gedit", args);
+        } else if (type == jpg) {
+            char* args[] = {
+                (char*)"feh",
+                (char*)copy.data(),
+                nullptr
+            };
+            execvp("feh", args);
+        } else if (type == mp4) {
+            char* args[] = {
+                (char*)"cvlc",
+                (char*)copy.data(),
+                nullptr
+            };
+            execvp("cvlc", args);
+        }
 
         cerr << "error on execl\n";
         perror("execvp");
         exit(1);
     }
 
-    wait(0);
+    while (true) {
+        if (wait(0) == pid) break;
+    }
 }
 
 void deleteFile(const std::vector<char>* filename, PacketType type) {
