@@ -155,23 +155,29 @@ void openFile(const std::vector<char>* filename, PacketType type) {
             char* args[] = {
                 (char*)"gedit",
                 (char*)copy.data(),
-                nullptr
+                nullptr,
             };
             execvp("gedit", args);
         } else if (type == jpg) {
             char* args[] = {
                 (char*)"feh",
                 (char*)copy.data(),
-                nullptr
+                nullptr,
             };
             execvp("feh", args);
         } else if (type == mp4) {
+            // char* args[] = {
+            //     (char*)"cvlc",
+            //     (char*)copy.data(),
+            //     nullptr
+            // };
+            // execvp("cvlc", args);
             char* args[] = {
-                (char*)"cvlc",
+                (char*)"mpv",
                 (char*)copy.data(),
-                nullptr
+                nullptr,
             };
-            execvp("cvlc", args);
+            execvp("mpv", args);
         }
 
         cerr << "error on execl\n";
