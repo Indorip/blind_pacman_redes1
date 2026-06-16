@@ -162,10 +162,10 @@ void runServer(int socket, const char* gameFile) {
                 sendFile(socket, FILE4NAME, jpg);
                 break;
             case 5:
-                // sendFile(socket, FILE5NAME, mp4);
+                sendFile(socket, FILE5NAME, mp4);
                 break;
             case 6:
-                // sendFile(socket, FILE6NAME, mp4);
+                sendFile(socket, FILE6NAME, mp4);
                 break;
             default:
                 break;
