@@ -19,6 +19,8 @@
   - Daniel Wesley Freitas Siqueira GRR20245621
   - Ulisses Bastian Machado da Rosa GRR20245567
 
+#underline(text(fill: blue, link("https://github.com/Dalien-S/blind_pacman_redes1#", [= Link Para o github])))
+
 = Implementação
 
 == Kermit
@@ -73,24 +75,26 @@ PacketError KermitPacket::confirmSend(int socket);
 
 === Timeout
 
-A função `send()` também implementa um segundo timeout, pois podemos receber "lixo" dos raw sockets com `recv()`. Dessa forma, se ficarmos durante um $8s$ sem receber mensagens do protocolo _Kermit_, podemos considerar que o envio falhou e reenviamos o pacote atual.
+A função `send()` também implementa um segundo timeout, pois podemos receber "lixo" dos raw sockets com `recv()`. Dessa forma, se ficarmos durante `SEND_TIMEOUT_SECS` segundos (atualmente $3s$) sem receber mensagens do protocolo _Kermit_, podemos considerar que o envio falhou e reenviamos o pacote atual.
 
 === Sincronização
 
-Com intuito de sincronizar ambos os lados da transmissão, a função `confirmSend()` foi feita com o intuito de "trocar" o estado do emissor e receptor, ou seja, é assumido que quem recebe com `receive()` passará a poder enviar após o emissor chamar `confirmSend()` e quem envia passará a ouvir depois que chamar `confirmSend()`.
+Com intuito de sincronizar ambos os lados da transmissão, a função `confirmSend()` foi feita para "trocar" o estado do emissor e receptor, ou seja, é assumido que quem recebe com `receive()` passará a poder enviar após o emissor chamar `confirmSend()` e quem envia passará a ouvir depois que chamar `confirmSend()`.
+
+Nos casos em que um dos lados precisa mandar duas mensagens seguidas (ex.: servidor quer enviar um arquivo $arrow$ nome + dados), o lado receptor identifica a mensagem e envia um "dummy" de volta para retomar os estados anteriores e receber a próxima mensagem.
 
 === Mensagens
 
 - Mensagens podem ter tamanho variável.
 - Cada mensagem é composta por pacotes:
   - Pacote inicial.
-  - Número variável de pacotes.
-  - Pacote final.
+  - Número variável de pacotes intermediários.
+  - Pacote final. (enviada por `confirmSend()`)
 - Cada pacote segue o protocolo _Kermit_.
 
 == Pacman
 
-- A visualização do PacMan é um quadrado em volta dele, ou seja, se o nível da visualização é 2, então o quadrado resultante terá dimensões $5 times 5$.
+- A visualização do PacMan é um quadrado em volta dele, ou seja, se o nível da visualização é 2, então o quadrado resultante terá dimensões $5 times 5$ com o PacMan em seu centro.
 - A IA dos fantasmas foi feita utilizando
   - Mão direita
   - Mão esquerda
@@ -103,6 +107,14 @@ Com intuito de sincronizar ambos os lados da transmissão, a função `confirmSe
 == Cliente e Servidor
 
 - Servidor começa enviando 
-- Cliente começa 
-- O cliente, após receber uma mensagem com o nome do arquivo (tipo), cria um arquivo temporário `nome ++ _received.<tipo>`.
-- Os arquivos recebidos são apagados assim que a visualização atual do arquivo é fechada.
+- Cliente começa escutando
+- A comunicação é considerada como estabelecida quando o cliente recebe de fato a primeira mensagem (por meio de `receive()`).
+- Grid:
+  - O servidor envia uma mensagem do tipo visualização, que contem as dimensões do grid
+  - O cliente guarda a informação das dimensões e envia um "dummy" para voltar a ouvir
+  - O servidor envia o grid com a visão do pacman
+- Arquivos:
+  - O servidor envia uma mensagem que especifica o tipo do arquivo e que contém seu nome.
+  - O cliente, após receber uma mensagem com o nome do arquivo (tipo), cria um arquivo temporário `nome ++ _received.<tipo>`.
+  - Após a criação do arquivo, o cliente envia um "dummy" para receber o conteúdo e escrevê-lo no arquivo que criou.
+  - Os arquivos recebidos pelo cliente são apagados assim que a visualização atual do arquivo é fechada.

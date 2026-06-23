@@ -10,6 +10,7 @@
 
 // #include "macros.hpp"
 
+#define SEND_TIMEOUT_SEC 3
 
 Logger kermit_logger;
 
@@ -245,7 +246,7 @@ PacketError KermitPacket::send(int socket, PacketType type, const char* data,
                 } else {
                     // if we don't receive a valid message in 2 seconds, then we
                     // send again
-                    if (difftime(time(NULL), timestamp) > 8) {
+                    if (difftime(time(NULL), timestamp) > SEND_TIMEOUT_SEC) {
                         kermit_logger.print(
                             "timed out on receiving kermit messages, "
                             "trying to send message again\n");
