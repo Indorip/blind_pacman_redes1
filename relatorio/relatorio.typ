@@ -13,13 +13,24 @@
   it
 }
 
-= Relatorio
+#title([Relatório]);
 
-- Alunos:
-  - Daniel Wesley Freitas Siqueira GRR20245621
-  - Ulisses Bastian Machado da Rosa GRR20245567
+= Alunos
+
+- Daniel Wesley Freitas Siqueira GRR20245621
+- Ulisses Bastian Machado da Rosa GRR20245567
 
 #underline(text(fill: blue, link("https://github.com/Dalien-S/blind_pacman_redes1#", [= Link Para o github])))
+
+= Uso
+
+```bash
+make
+# o arquivo csv é opcional
+# caso não seja providenciado um csv, o programa procura por ufpr.csv automaticamente
+sudo ./blind_pacman --server <interface> [<arquivo>.csv]
+sudo ./blind_pacman --client <interface>
+```
 
 = Implementação
 
@@ -31,7 +42,7 @@ Foi criada a seguinte estrutura de dados para representar um pacote do protocolo
 struct KermitPacket {
   struct {
     unsigned char init_marker = KERMIT_INIT_MARKER;
-    unsigned char size : 5; 
+    unsigned char size : 5;
     unsigned char sequence : 6;
     PacketType type : 5; // enum com os tipos de mensagem possíveis
   } header;
@@ -62,16 +73,20 @@ PacketError KermitPacket::sendPacket(int socket);
 
 Para facilitar o processo de envio de mensagens, foi criada uma camada de abstração com 3 funções:
 
-```cpp
-// recebe pacotes de uma mensagem e concatena o conteúdo em um std::vector
-PacketError KermitPacket::receive(int socket, std::vector<char>* buffer);
-// "quebra" os dados presentes em um buffer de bytes e envia pacotes referentes a esses dados
-// inicia a transmissão com uma mensagem de tipo específico initialize
-PacketError KermitPacket::send(int socket, PacketType type, const char* data, unsigned int data_size);
-// chamada sempre após send() para poder "trocar" o estado do emissor e receptor
-// responsável por checar se o outro lado recebeu o pacote do tipo end_transmission
-PacketError KermitPacket::confirmSend(int socket);
-```
+#text(
+  size: 6pt,
+  [```cpp
+  // recebe pacotes de uma mensagem e concatena o conteúdo em um std::vector
+  PacketError KermitPacket::receive(int socket, std::vector<char>* buffer);
+  // "quebra" os dados presentes em um buffer de bytes e envia pacotes referentes a esses dados
+  // inicia a transmissão com uma mensagem de tipo específico initialize
+  PacketError KermitPacket::send(int socket, PacketType type, const char* data, unsigned int data_size);
+  // chamada sempre após send() para poder "trocar" o estado do emissor e receptor
+  // responsável por checar se o outro lado recebeu o pacote do tipo end_transmission
+  PacketError KermitPacket::confirmSend(int socket);
+  ```],
+)
+
 
 === Timeout
 
@@ -81,7 +96,7 @@ A função `send()` também implementa um segundo timeout, pois podemos receber 
 
 Com intuito de sincronizar ambos os lados da transmissão, a função `confirmSend()` foi feita para "trocar" o estado do emissor e receptor, ou seja, é assumido que quem recebe com `receive()` passará a poder enviar após o emissor chamar `confirmSend()` e quem envia passará a ouvir depois que chamar `confirmSend()`.
 
-Nos casos em que um dos lados precisa mandar duas mensagens seguidas (ex.: servidor quer enviar um arquivo $arrow$ nome + dados), o lado receptor identifica a mensagem e envia um "dummy" de volta para retomar os estados anteriores e receber a próxima mensagem.
+Nos casos em que um dos lados precisa mandar duas mensagens seguidas (ex.: servidor quer enviar um arquivo $arrow$ nome + dados), o lado receptor identifica a mensagem e envia um "dummy" de volta para retomar os estados anteriores e receber a próxima mensagem. Essas mensagens "compostas" são iniciadas por um tipo específico (arquivo ou visualização) e seguidas por mensagens com pacotes do tipo `data` (além do início e final).
 
 === Mensagens
 
@@ -106,7 +121,7 @@ Nos casos em que um dos lados precisa mandar duas mensagens seguidas (ex.: servi
 
 == Cliente e Servidor
 
-- Servidor começa enviando 
+- Servidor começa enviando
 - Cliente começa escutando
 - A comunicação é considerada como estabelecida quando o cliente recebe de fato a primeira mensagem (por meio de `receive()`).
 - Grid:
