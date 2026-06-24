@@ -84,7 +84,7 @@ void sendFile(int socket, const char* filename, PacketType type) {
 void sendWin(int socket) {
     std::vector<char> buffer;
     KermitPacket packet;
-    
+
     buffer.push_back('1');
     packet.send(socket, end_transmission, buffer.data(), 1);
     packet.confirmSend(socket);
@@ -114,9 +114,8 @@ void runServer(int socket, const char* gameFile) {
     DirectionType pacDir;
     int status;
 
-    if (!gameFile)
-    {
-        //logger.print("não recebeu arquivo de mapa\n");
+    if (!gameFile) {
+        // logger.print("não recebeu arquivo de mapa\n");
         return;
     }
     game = new GameState(gameFile);
@@ -171,7 +170,7 @@ void runServer(int socket, const char* gameFile) {
                 break;
         }
     } while (game->win == 0);
-    
+
     // Lose
     if (game->win == -1) {
         sendGrid(socket, game);
@@ -179,9 +178,9 @@ void runServer(int socket, const char* gameFile) {
         sendFile(socket, "lose.mp4", mp4);
         // packet.receive(socket, &buffer);
         sendLose(socket);
-    } 
+    }
     // Win
-    else if (game-> win == 1) {
+    else if (game->win == 1) {
         sendGrid(socket, game);
         packet.receive(socket, &buffer);
         sendWin(socket);

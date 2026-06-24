@@ -18,7 +18,7 @@
 using std::cerr;
 using std::cin;
 
-// 5x5 grid
+// 5x5 grid for testing
 const char small_grid[] = {
     WALL,  PACMAN, EMPTY, RED,  BLUE, GREEN, YELLOW, FILE1, FILE2,
     FILE3, WALL,   WALL,  WALL, WALL, WALL,  WALL,   WALL,  WALL,
@@ -129,7 +129,6 @@ void openFile(const std::vector<char>* filename, PacketType type) {
 
     const char* user = getenv("SUDO_USER");
     struct passwd* pw = getpwnam(user);
-    // struct passwd* pw = getpwnam("dalien");
     if (!pw) exit(1);
 
     // child process
@@ -138,19 +137,11 @@ void openFile(const std::vector<char>* filename, PacketType type) {
         setuid(pw->pw_uid);
         setenv("HOME", pw->pw_dir, 1);
 
-        // Derive the runtime dir from UID — works even when sudo strips env
-        // vars
         std::string runtime_dir = "/run/user/" + std::to_string(pw->pw_uid);
         setenv("XDG_RUNTIME_DIR", runtime_dir.c_str(), 1);
 
         cerr << "opening file: (" << (char*)copy.data() << ")\n";
 
-        // char* args[] = {
-        //     (char*)"xdg-open",
-        //     (char*)copy.data(),
-        //     nullptr,
-        // };
-        // execvp("xdg-open", args);
         if (type == txt) {
             char* args[] = {
                 (char*)"gedit",
@@ -166,12 +157,6 @@ void openFile(const std::vector<char>* filename, PacketType type) {
             };
             execvp("feh", args);
         } else if (type == mp4) {
-            // char* args[] = {
-            //     (char*)"cvlc",
-            //     (char*)copy.data(),
-            //     nullptr
-            // };
-            // execvp("cvlc", args);
             char* args[] = {
                 (char*)"mpv",
                 (char*)copy.data(),

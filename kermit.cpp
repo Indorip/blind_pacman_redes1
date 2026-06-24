@@ -39,7 +39,7 @@ PacketError KermitPacket::writeData(const char* data, int data_size) {
         return null_pointer;
     }
 
-    if (data_size > 32 /*max value for 5b number is 32*/) {
+    if (data_size > 31 /*max value for 5b number is 31*/) {
         return written_data_too_big;
     }
 
