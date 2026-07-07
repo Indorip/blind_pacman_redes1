@@ -7,6 +7,6 @@ O programa funciona entre computadores ou em loopback no mesmo computador e real
 
 Forma de uso na linha de comando e mais detalhes da implementação no relatório do projeto.
 
-Autores:
-Daniel Siqueira
+Autores:  
+Daniel Siqueira  
 Ulisses Bastian
