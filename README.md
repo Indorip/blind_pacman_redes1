@@ -6,3 +6,7 @@ Protocolo para pacotes é um kermit-like. Foi utilizada uma raw-socket promiscua
 O programa funciona entre computadores ou em loopback no mesmo computador e realiza envio dos arquivos 1 .. 6 ao jogador comer os pellets.
 
 Forma de uso na linha de comando e mais detalhes da implementação no relatório do projeto.
+
+Autores:
+Daniel Siqueira
+Ulisses Bastian
